@@ -1,0 +1,15 @@
+.history
+.git
+.idea
+.vscode
+coverage
+dist
+node_modules
+pnpm-lock.yaml
+package-lock.json
+
+# Build/Tool-Artefakte
+---*
+
+# Tests-Output ggf. später
+coverage
