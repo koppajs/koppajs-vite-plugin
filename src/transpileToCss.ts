@@ -1,41 +1,42 @@
 import * as sass from 'sass'
-import postcss from 'postcss'
 import autoprefixer from 'autoprefixer'
+import postcss from 'postcss'
 
+/**
+ * Scopes plain CSS by prefixing selectors with a parent selector.
+ * - Skips rules inside at-rules (e.g. @media) to avoid breaking nested structures.
+ * - Only adjusts simple rule selectors (string-based), no AST cloning required.
+ */
 function scopeCss(css: string, parent: string): string {
-  const selector = ` ${parent} `
-  let scopedCss = ''
+  const prefix = ` ${parent} `
+  const root = postcss.parse(css)
 
-  const ast = postcss.parse(css)
-  ast.walkRules((rule: any) => {
-    if (!rule.parent || rule.parent.type === 'atrule') {
-      scopedCss += rule.toString()
-      return
-    }
+  root.walkRules((rule) => {
+    // Skip rules directly under at-rules (@media, @supports, etc.)
+    if (rule.parent && rule.parent.type === 'atrule') return
 
-    if (rule.selector.startsWith('.') || rule.selector.startsWith('#')) {
-      rule.selector = `${selector}${rule.selector}`
+    // Defensive: selector can be empty in edge cases
+    const selector = rule.selector?.trim()
+    if (!selector) return
+
+    if (selector.startsWith('.') || selector.startsWith('#')) {
+      rule.selector = `${prefix}${selector}`
     } else {
-      rule.selector = `${selector} ${rule.selector}`
+      rule.selector = `${prefix} ${selector}`
     }
-
-    scopedCss += rule.toString()
-    scopedCss = scopedCss.replace(/\s+/g, ' ').replace(/\n/g, '')
   })
 
-  return scopedCss
+  // Keep output reasonably compact (but still valid)
+  return root.toString().replace(/\s+/g, ' ').replace(/\n/g, '')
 }
 
-function transpileToCss(code: string, type: string, scope = ''): string {
-  if (type !== 'sass' && type !== 'scss') {
-    throw new Error(`Invalid type '${type}'. Only 'sass' or 'scss' are allowed.`)
-  }
+type SassSyntax = 'sass' | 'scss'
 
+function transpileToCss(code: string, type: SassSyntax, scope = ''): string {
   if (!code.trim()) {
     throw new Error('Invalid CSS code.')
   }
 
-  // Nutzung der neuen API
   const result = sass.compileString(code, {
     syntax: type === 'sass' ? 'indented' : 'scss',
   })

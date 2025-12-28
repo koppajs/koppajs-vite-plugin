@@ -6,11 +6,15 @@ import path from 'node:path'
 import type { Plugin } from 'vite'
 
 import transpileToCss from './transpileToCss.js'
-import transpileToJs from './transpileToJs.js'
+import transpileToJs, { type JsTranspileResult } from './transpileToJs.js'
+
+/* -------------------------------------------------------------------------- */
+/*  Plugin Options                                                            */
+/* -------------------------------------------------------------------------- */
 
 interface PluginOptions {
   tsconfigFile?: string
-  // weitere Optionen später
+  // Reserved for future extensions
 }
 
 const DEFAULT_PLUGIN_OPTIONS: PluginOptions = {
@@ -18,20 +22,26 @@ const DEFAULT_PLUGIN_OPTIONS: PluginOptions = {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Helpers                                                                   */
+/*  Utility Helpers                                                           */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Escapes backticks and template interpolation markers.
+ * `${` is rewritten so the core runtime can safely restore it later.
+ */
 function escapeBackticks(input: string): string {
-  // wichtig: `${` → `$-{`, Core macht daraus später wieder `${`
   return input.replace(/`/g, '\\`').replace(/\$\{/g, '\\$-{')
 }
 
+/**
+ * Normalizes paths to POSIX style for consistency across platforms.
+ */
 function normalizePath(inputPath: string): string {
   return inputPath.replace(/\\/g, '/')
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Phase 1: .kpa → Blöcke (template/style/script)                            */
+/*  Phase 1: Parse .kpa source into blocks                                    */
 /* -------------------------------------------------------------------------- */
 
 type ScriptLang = 'js' | 'ts'
@@ -53,11 +63,15 @@ interface ParsedKpa {
   script: ScriptBlock | null
 }
 
+/**
+ * Extracts the first matching block from the source.
+ */
 function extractFirstBlock(
   code: string,
   tags: string,
 ): { tag: string; content: string } | null {
   const tagList = tags.split('|')
+
   for (const tag of tagList) {
     const regex = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'm')
     const match = regex.exec(code)
@@ -65,9 +79,13 @@ function extractFirstBlock(
       return { tag, content: match[1]?.trim() ?? '' }
     }
   }
+
   return null
 }
 
+/**
+ * Extracts all matching blocks from the source.
+ */
 function extractAllBlocks(
   code: string,
   tags: string,
@@ -78,6 +96,7 @@ function extractAllBlocks(
   for (const tag of tagList) {
     const regex = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'g')
     let match: RegExpExecArray | null
+
     while ((match = regex.exec(code)) !== null) {
       results.push({ tag, content: match[1]?.trim() ?? '' })
     }
@@ -86,6 +105,9 @@ function extractAllBlocks(
   return results
 }
 
+/**
+ * Parses the raw .kpa file into its logical parts.
+ */
 function parseKpaSource(source: string): ParsedKpa {
   const templateBlock = extractFirstBlock(source, 'template')
 
@@ -111,7 +133,7 @@ function parseKpaSource(source: string): ParsedKpa {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Phase 2: Composition-Analyse (Top-Level Variablen/Funktionen)             */
+/*  Phase 2: Composition API analysis                                         */
 /* -------------------------------------------------------------------------- */
 
 interface CompositionAnalysis {
@@ -120,43 +142,124 @@ interface CompositionAnalysis {
   methodKeys: string[]
 }
 
+/**
+ * Minimal AST shapes we need from Acorn.
+ * This avoids using `any` while still staying lightweight.
+ */
+type AstIdentifier = { type: 'Identifier'; name: string }
+type AstVariableDeclarator = { id: AstIdentifier | { type: string } }
+type AstVariableDeclaration = {
+  type: 'VariableDeclaration'
+  declarations: AstVariableDeclarator[]
+}
+type AstReturnStatement = { type: 'ReturnStatement' }
+type AstFunctionDeclaration = {
+  type: 'FunctionDeclaration'
+  id?: AstIdentifier
+  body: { body: AstStatement[] }
+}
+
+type AstStatement = AstReturnStatement | AstVariableDeclaration | AstFunctionDeclaration | { type: string }
+
+type AstProgram = {
+  body: unknown[]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isAstProgram(value: unknown): value is AstProgram {
+  return isRecord(value) && Array.isArray(value.body)
+}
+
+function asAstFunctionDeclaration(stmt: unknown): AstFunctionDeclaration | null {
+  if (!isRecord(stmt)) return null
+  if (stmt.type !== 'FunctionDeclaration') return null
+  if (!isRecord(stmt.body) || !Array.isArray((stmt.body as Record<string, unknown>).body)) return null
+
+  // id is optional
+  const idVal = stmt.id
+  const id =
+    isRecord(idVal) && idVal.type === 'Identifier' && typeof idVal.name === 'string'
+      ? ({ type: 'Identifier', name: idVal.name } satisfies AstIdentifier)
+      : undefined
+
+  return {
+    type: 'FunctionDeclaration',
+    id,
+    body: { body: (stmt.body as Record<string, unknown>).body as AstStatement[] },
+  }
+}
+
+function isAstIdentifier(value: unknown): value is AstIdentifier {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { type?: unknown }).type === 'Identifier' &&
+    typeof (value as { name?: unknown }).name === 'string'
+  )
+}
+
+/**
+ * Analyzes a script block to detect composition-style usage.
+ * Top-level variables and functions are treated as data/methods
+ * unless a top-level return is found.
+ */
 function analyzeScriptForComposition(jsCode: string): CompositionAnalysis {
   const dataKeys = new Set<string>()
   const methodKeys = new Set<string>()
   let hasTopLevelReturn = false
 
   try {
-    // Wir tun so, als wäre der Script-Block der Body einer async-Funktion.
+    // The script is parsed as if it were the body of an async function.
     const wrapped = `async function __koppa_wrapper__() {\n${jsCode}\n}`
-    const ast = parse(wrapped, {
+    const astUnknown: unknown = parse(wrapped, {
       ecmaVersion: 'latest',
       sourceType: 'script',
-    }) as any
+    })
 
-    const func = ast.body[0]
-    const body = func?.type === 'FunctionDeclaration' ? func.body.body : []
+    if (!isAstProgram(astUnknown) || astUnknown.body.length === 0) {
+      return { isComposition: false, dataKeys: [], methodKeys: [] }
+    }
+
+    const func = asAstFunctionDeclaration(astUnknown.body[0])
+    if (!func) {
+      return { isComposition: false, dataKeys: [], methodKeys: [] }
+    }
+
+    const body = func.body.body
 
     for (const stmt of body) {
+      if (!isRecord(stmt) || typeof stmt.type !== 'string') continue
+
       switch (stmt.type) {
         case 'ReturnStatement':
           hasTopLevelReturn = true
           break
-        case 'VariableDeclaration':
-          for (const decl of stmt.declarations) {
-            if (decl.id.type === 'Identifier') {
+
+        case 'VariableDeclaration': {
+          const decls = (stmt as AstVariableDeclaration).declarations
+
+          for (const decl of decls) {
+            if (isAstIdentifier(decl.id)) {
               dataKeys.add(decl.id.name)
             }
           }
           break
-        case 'FunctionDeclaration':
-          if (stmt.id?.name) {
-            methodKeys.add(stmt.id.name)
+        }
+
+        case 'FunctionDeclaration': {
+          const fd = stmt as unknown as AstFunctionDeclaration
+          if (fd.id?.name) {
+            methodKeys.add(fd.id.name)
           }
           break
+        }
       }
     }
   } catch {
-    // Syntaxfehler → lieber Legacy-Mode als kaputtzaubern
+    // Syntax errors fall back to legacy mode.
     return { isComposition: false, dataKeys: [], methodKeys: [] }
   }
 
@@ -170,38 +273,46 @@ function analyzeScriptForComposition(jsCode: string): CompositionAnalysis {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Phase 3: Script transpilen + Controller bauen                             */
+/*  Phase 3: Script transpilation and controller generation                  */
 /* -------------------------------------------------------------------------- */
 
+type ScriptTranspileResult = {
+  code: string
+  map?: unknown
+}
+
+/**
+ * Transpiles the script block and optionally transforms it into
+ * a composition-style controller.
+ */
 function transpileScriptBlock(
   script: ScriptBlock | null,
   options: PluginOptions,
-): string {
+): ScriptTranspileResult {
   if (!script) {
-    // Minimal-Controller, damit Core.createModel was zum Arbeiten hat
-    return 'return { data: {} };'
+    // Minimal controller to satisfy the core runtime.
+    return { code: 'return { data: {} };' }
   }
 
-  // 1) TS → JS oder JS direkt
-  let jsCode: string
+  let js: JsTranspileResult
+
   if (script.lang === 'ts') {
     const tsconfigPath = options.tsconfigFile
       ? path.resolve(globalThis.process.cwd(), options.tsconfigFile)
       : undefined
-    jsCode = transpileToJs(script.content, tsconfigPath)
+
+    js = transpileToJs(script.content, tsconfigPath)
   } else {
-    jsCode = script.content
+    js = { code: script.content }
   }
 
-  // 2) Composition-Analyse
-  const { isComposition, dataKeys, methodKeys } = analyzeScriptForComposition(jsCode)
+  const { isComposition, dataKeys, methodKeys } = analyzeScriptForComposition(js.code)
 
-  // Legacy-Mode: Entwickler kümmert sich selbst um `return { ... }`
+  // Legacy mode: developer controls the return value manually.
   if (!isComposition) {
-    return jsCode
+    return js
   }
 
-  // Composition-Mode: Top-Level Variablen/Funktionen → data/methods
   const propsLines: string[] = []
 
   if (dataKeys.length > 0) {
@@ -212,17 +323,22 @@ function transpileScriptBlock(
     propsLines.push(`  methods: { ${methodKeys.join(', ')} }`)
   }
 
-  const propsObject = propsLines.length > 0 ? `{\n${propsLines.join(',\n')}\n}` : `{}`
+  const propsObject =
+    propsLines.length > 0 ? `{\n${propsLines.join(',\n')}\n}` : `{}`
 
-  const jsWithReturn = `${jsCode}\n\nreturn ${propsObject};`
-
-  return jsWithReturn
+  return {
+    code: `${js.code}\n\nreturn ${propsObject};`,
+    map: js.map,
+  }
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Phase 4: Styles zusammenführen                                            */
+/*  Phase 4: Style transpilation                                              */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Compiles and merges all style blocks into a single CSS string.
+ */
 function transpileStyleBlocks(styles: StyleBlock[]): string {
   if (!styles.length) return ''
 
@@ -240,30 +356,38 @@ function transpileStyleBlocks(styles: StyleBlock[]): string {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Phase 5: .kpa → ES-Modul (ComponentSource)                                */
+/*  Phase 5: Transform .kpa into an ES module                                 */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Converts a .kpa file into a standard ES module that can be consumed
+ * by the KoppaJS core runtime.
+ */
 function transformKpaToModule(code: string, id: string, options: PluginOptions): string {
   const parsed = parseKpaSource(code)
 
   const template = parsed.template ? escapeBackticks(parsed.template) : ''
   const style = escapeBackticks(transpileStyleBlocks(parsed.styles))
-  const scriptBody = escapeBackticks(transpileScriptBlock(parsed.script, options))
 
-  const newModule = `
+  const scriptResult = transpileScriptBlock(parsed.script, options)
+  const scriptBody = escapeBackticks(scriptResult.code)
+
+  const scriptMapJson = scriptResult.map ? JSON.stringify(scriptResult.map) : null
+  const scriptMap = scriptMapJson ? escapeBackticks(scriptMapJson) : null
+
+  return `
     export default {
       path: \`${normalizePath(id)}\`,
       template: \`${template}\`,
       style: \`${style}\`,
-      script: \`(() => { ${scriptBody || 'return { data: {} };'} })()\`
+      script: \`(() => { ${scriptBody || 'return { data: {} };'} })()\`,
+      scriptMap: ${scriptMap ? `\`${scriptMap}\`` : 'null'}
     };
-  `.replace(/\/\/# sourceMappingURL=module\\.jsx\\.map/g, '')
-
-  return newModule
+  `
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Vite-Plugin-Hülle                                                         */
+/*  Vite Plugin Wrapper                                                       */
 /* -------------------------------------------------------------------------- */
 
 export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
@@ -285,8 +409,7 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
 
     resolveId(source, importer) {
       if (source.endsWith('.kpa') && importer) {
-        const resolvedPath = normalizePath(path.resolve(path.dirname(importer), source))
-        return resolvedPath
+        return normalizePath(path.resolve(path.dirname(importer), source))
       }
       return null
     },
@@ -295,10 +418,7 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
       if (!id.endsWith('.kpa')) return null
 
       const code = fs.readFileSync(id, 'utf8')
-      const moduleCode = transformKpaToModule(code, id, options)
-
-      // Alles Weitere (Imports, Bundling, Caching) übernimmt Vite/Rollup
-      return moduleCode
+      return transformKpaToModule(code, id, options)
     },
   }
 }
