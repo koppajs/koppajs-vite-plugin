@@ -7,6 +7,12 @@ import type { Plugin } from 'vite'
 
 import transpileToCss from './transpileToCss.js'
 import transpileToJs, { type JsTranspileResult } from './transpileToJs.js'
+import {
+  extractImports,
+  generateDepsCode,
+  type ImportInfo,
+  type ResolvedImportInfo,
+} from './utils/extractImports.js'
 
 /* -------------------------------------------------------------------------- */
 /*  Plugin Options                                                            */
@@ -24,14 +30,6 @@ const DEFAULT_PLUGIN_OPTIONS: PluginOptions = {
 /* -------------------------------------------------------------------------- */
 /*  Utility Helpers                                                           */
 /* -------------------------------------------------------------------------- */
-
-/**
- * Escapes backticks and template interpolation markers.
- * `${` is rewritten so the core runtime can safely restore it later.
- */
-function escapeBackticks(input: string): string {
-  return input.replace(/`/g, '\\`').replace(/\$\{/g, '\\$-{')
-}
 
 /**
  * Normalizes paths to POSIX style for consistency across platforms.
@@ -159,7 +157,11 @@ type AstFunctionDeclaration = {
   body: { body: AstStatement[] }
 }
 
-type AstStatement = AstReturnStatement | AstVariableDeclaration | AstFunctionDeclaration | { type: string }
+type AstStatement =
+  | AstReturnStatement
+  | AstVariableDeclaration
+  | AstFunctionDeclaration
+  | { type: string }
 
 type AstProgram = {
   body: unknown[]
@@ -176,7 +178,8 @@ function isAstProgram(value: unknown): value is AstProgram {
 function asAstFunctionDeclaration(stmt: unknown): AstFunctionDeclaration | null {
   if (!isRecord(stmt)) return null
   if (stmt.type !== 'FunctionDeclaration') return null
-  if (!isRecord(stmt.body) || !Array.isArray((stmt.body as Record<string, unknown>).body)) return null
+  if (!isRecord(stmt.body) || !Array.isArray((stmt.body as Record<string, unknown>).body))
+    return null
 
   // id is optional
   const idVal = stmt.id
@@ -279,20 +282,27 @@ function analyzeScriptForComposition(jsCode: string): CompositionAnalysis {
 type ScriptTranspileResult = {
   code: string
   map?: unknown
+  deps: Map<string, ImportInfo>
 }
 
 /**
  * Transpiles the script block and optionally transforms it into
  * a composition-style controller.
+ * Also extracts import declarations and returns them as deps.
  */
 function transpileScriptBlock(
   script: ScriptBlock | null,
   options: PluginOptions,
+  filePath: string,
 ): ScriptTranspileResult {
   if (!script) {
     // Minimal controller to satisfy the core runtime.
-    return { code: 'return { data: {} };' }
+    return { code: 'return { state: {} };', deps: new Map() }
   }
+
+  // Extract imports from the source code BEFORE transpilation.
+  // This detects duplicate identifiers and removes import declarations.
+  const { deps, strippedCode } = extractImports(script.content, filePath)
 
   let js: JsTranspileResult
 
@@ -301,34 +311,34 @@ function transpileScriptBlock(
       ? path.resolve(globalThis.process.cwd(), options.tsconfigFile)
       : undefined
 
-    js = transpileToJs(script.content, tsconfigPath)
+    js = transpileToJs(strippedCode, tsconfigPath)
   } else {
-    js = { code: script.content }
+    js = { code: strippedCode }
   }
 
   const { isComposition, dataKeys, methodKeys } = analyzeScriptForComposition(js.code)
 
   // Legacy mode: developer controls the return value manually.
   if (!isComposition) {
-    return js
+    return { ...js, deps }
   }
 
   const propsLines: string[] = []
 
   if (dataKeys.length > 0) {
-    propsLines.push(`  data: { ${dataKeys.join(', ')} }`)
+    propsLines.push(`  state: { ${dataKeys.join(', ')} }`)
   }
 
   if (methodKeys.length > 0) {
     propsLines.push(`  methods: { ${methodKeys.join(', ')} }`)
   }
 
-  const propsObject =
-    propsLines.length > 0 ? `{\n${propsLines.join(',\n')}\n}` : `{}`
+  const propsObject = propsLines.length > 0 ? `{\n${propsLines.join(',\n')}\n}` : `{}`
 
   return {
     code: `${js.code}\n\nreturn ${propsObject};`,
     map: js.map,
+    deps,
   }
 }
 
@@ -363,25 +373,40 @@ function transpileStyleBlocks(styles: StyleBlock[]): string {
  * Converts a .kpa file into a standard ES module that can be consumed
  * by the KoppaJS core runtime.
  */
-function transformKpaToModule(code: string, id: string, options: PluginOptions): string {
+function transformKpaToModule(
+  code: string,
+  id: string,
+  options: PluginOptions,
+  resolvedDeps: Map<string, ResolvedImportInfo>,
+): string {
   const parsed = parseKpaSource(code)
 
-  const template = parsed.template ? escapeBackticks(parsed.template) : ''
-  const style = escapeBackticks(transpileStyleBlocks(parsed.styles))
+  const template = parsed.template ?? ''
+  const style = transpileStyleBlocks(parsed.styles)
 
-  const scriptResult = transpileScriptBlock(parsed.script, options)
-  const scriptBody = escapeBackticks(scriptResult.code)
+  const scriptResult = transpileScriptBlock(parsed.script, options, id)
+  const scriptBody = scriptResult.code || 'return { state: {} };'
 
-  const scriptMapJson = scriptResult.map ? JSON.stringify(scriptResult.map) : null
-  const scriptMap = scriptMapJson ? escapeBackticks(scriptMapJson) : null
+  // Use JSON.stringify to safely serialize all string content.
+  // This prevents backticks, ${}, and other special characters from breaking
+  // the generated ES module output.
+  const pathStr = JSON.stringify(normalizePath(id))
+  const templateStr = JSON.stringify(template)
+  const styleStr = JSON.stringify(style)
+  const scriptStr = JSON.stringify(`(() => { ${scriptBody} })()`)
+  const scriptMapStr = scriptResult.map ? JSON.stringify(scriptResult.map) : 'null'
+
+  // Generate deps code for dynamic imports using pre-resolved paths
+  const depsCode = generateDepsCode(resolvedDeps)
 
   return `
     export default {
-      path: \`${normalizePath(id)}\`,
-      template: \`${template}\`,
-      style: \`${style}\`,
-      script: \`(() => { ${scriptBody || 'return { data: {} };'} })()\`,
-      scriptMap: ${scriptMap ? `\`${scriptMap}\`` : 'null'}
+      path: ${pathStr},
+      template: ${templateStr},
+      style: ${styleStr},
+      script: ${scriptStr},
+      scriptMap: ${scriptMapStr},
+      deps: ${depsCode}
     };
   `
 }
@@ -393,10 +418,15 @@ function transformKpaToModule(code: string, id: string, options: PluginOptions):
 export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
   const pluginName = 'koppajs-vite-plugin'
   const options: PluginOptions = { ...DEFAULT_PLUGIN_OPTIONS, ...config }
+  let isDev = false
 
   return {
     name: pluginName,
     enforce: 'pre',
+
+    configResolved(resolvedConfig) {
+      isDev = resolvedConfig.command === 'serve'
+    },
 
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
@@ -414,11 +444,94 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
       return null
     },
 
-    load(id: string) {
+    async load(id: string) {
       if (!id.endsWith('.kpa')) return null
 
-      const code = fs.readFileSync(id, 'utf8')
-      return transformKpaToModule(code, id, options)
+      // Strip query string from .kpa id for resolution
+      const importerId = id.split('?')[0]
+
+      const code = fs.readFileSync(importerId, 'utf8')
+
+      // Pre-extract imports to get deps before transform
+      const parsed = parseKpaSource(code)
+      const scriptContent = parsed.script?.content ?? ''
+      const { deps } = extractImports(scriptContent, importerId)
+
+      // Resolve all import sources using Vite's resolver
+      const resolvedDeps = new Map<string, ResolvedImportInfo>()
+
+      for (const [identifier, info] of deps) {
+        const source = info.source
+        let spec = source
+        let resolvedId: string | undefined
+
+        try {
+          const resolved = await this.resolve(source, importerId, { skipSelf: true })
+          resolvedId = resolved?.id
+
+          if (resolved?.id) {
+            // Check if it's a virtual module or special ID (starts with \0)
+            // or already URL-like (http://, https://, etc.)
+            if (
+              resolved.id.startsWith('\0') ||
+              resolved.id.startsWith('virtual:') ||
+              /^https?:\/\//.test(resolved.id)
+            ) {
+              spec = resolved.id
+            } else if (path.isAbsolute(resolved.id)) {
+              // Check if resolved path is inside project root
+              const projectRoot = process.cwd()
+              const rel = path.relative(projectRoot, resolved.id).replace(/\\/g, '/')
+
+              if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+                // Inside project root - use Vite root-relative specifier
+                spec = '/' + rel
+              } else {
+                // Outside project root - use the resolved id as-is
+                spec = resolved.id
+              }
+            } else {
+              // Already a valid specifier (e.g., bare import that resolved to itself)
+              spec = resolved.id
+            }
+          } else {
+            // Resolution returned null
+            if (source.startsWith('.')) {
+              // Relative import - compute absolute path and convert to root-relative
+              const abs = path.resolve(path.dirname(importerId), source)
+              const rel = path.relative(process.cwd(), abs).replace(/\\/g, '/')
+              spec = '/' + rel
+            }
+            // Else: bare import like "react" - keep source unchanged
+          }
+        } catch {
+          // Resolution failed
+          if (source.startsWith('.')) {
+            // Relative import - compute absolute path and convert to root-relative
+            const abs = path.resolve(path.dirname(importerId), source)
+            const rel = path.relative(process.cwd(), abs).replace(/\\/g, '/')
+            spec = '/' + rel
+          }
+          // Else: keep original source
+        }
+
+        // Debug log in dev mode
+        if (isDev) {
+          console.debug('[koppajs-vite-plugin][deps]', {
+            importerId,
+            source,
+            resolvedId,
+            spec,
+          })
+        }
+
+        resolvedDeps.set(identifier, {
+          ...info,
+          resolvedPath: spec,
+        })
+      }
+
+      return transformKpaToModule(code, id, options, resolvedDeps)
     },
   }
 }

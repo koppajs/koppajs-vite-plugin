@@ -111,10 +111,10 @@ The plugin transforms `.kpa` files into standard ES modules:
 
 ```ts
 export default {
-	path: '.../component.kpa',
-	template: '<escaped-template>',
-	style: '<compiled-css>',
-	script: '(()=>{ /* controller */ })()',
+  path: '.../component.kpa',
+  template: '<escaped-template>',
+  style: '<compiled-css>',
+  script: '(()=>{ /* controller */ })()',
 }
 ```
 
@@ -134,11 +134,11 @@ executable script code — they can break evaluation when scripts are wrapped or
 ### How sourcemaps are handled
 
 - The Vite plugin strips all `sourceMappingURL` and `sourceURL` comments
-	from generated component scripts.
+  from generated component scripts.
 - Sourcemaps are preserved **as data** and exported separately as `scriptMap`
-	on the component definition.
+  on the component definition.
 - The KoppaJS core runtime is responsible for re-attaching sourcemaps when executing
-	dynamic code (for example via `Blob` or `data:` URLs).
+  dynamic code (for example via `Blob` or `data:` URLs).
 
 > ⚠️ If the core does not explicitly attach the sourcemap at runtime,
 > dynamic component scripts will execute correctly,
