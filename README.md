@@ -7,7 +7,7 @@
 <br>
 
 <div align="center">
-	<a href="https://www.npmjs.com/package/@koppajs/plugin-vite"><img src="https://img.shields.io/npm/v/@koppajs/plugin-vite?style=flat-square" alt="npm version"></a>
+	<a href="https://www.npmjs.com/package/@koppajs/koppajs-vite-plugin"><img src="https://img.shields.io/npm/v/@koppajs/koppajs-vite-plugin?style=flat-square" alt="npm version"></a>
 	<a href="https://github.com/koppajs/koppajs-vite-plugin/actions"><img src="https://img.shields.io/github/actions/workflow/status/koppajs/koppajs-vite-plugin/ci.yml?branch=main&style=flat-square" alt="CI Status"></a>
 	<a href="./LICENSE"><img src="https://img.shields.io/github/license/koppajs/koppajs-vite-plugin?style=flat-square" alt="License"></a>
 </div>
@@ -84,7 +84,7 @@ It is the glue that makes the KoppaJS development workflow seamless.
 ## Installation
 
 ```bash
-pnpm add @koppajs/koppajs-core @koppajs/plugin-vite -D
+pnpm add @koppajs/koppajs-core @koppajs/koppajs-vite-plugin -D
 ```
 
 No explicit configuration is required beyond having the plugin installed.

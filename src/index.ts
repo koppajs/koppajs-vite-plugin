@@ -13,6 +13,8 @@ import {
   type ImportInfo,
   type ResolvedImportInfo,
 } from './utils/extractImports.js'
+import { normalizeStructSeed } from './utils/structId.js'
+import { injectStructIdsIntoTemplate } from './utils/injectStructIds.js'
 
 /* -------------------------------------------------------------------------- */
 /*  Plugin Options                                                            */
@@ -373,7 +375,7 @@ function transpileStyleBlocks(styles: StyleBlock[]): string {
  * Converts a .kpa file into a standard ES module that can be consumed
  * by the KoppaJS core runtime.
  */
-function transformKpaToModule(
+export function transformKpaToModule(
   code: string,
   id: string,
   options: PluginOptions,
@@ -381,11 +383,17 @@ function transformKpaToModule(
 ): string {
   const parsed = parseKpaSource(code)
 
-  const template = parsed.template ?? ''
+  let template = parsed.template ?? ''
   const style = transpileStyleBlocks(parsed.styles)
 
   const scriptResult = transpileScriptBlock(parsed.script, options, id)
   const scriptBody = scriptResult.code || 'return { state: {} };'
+
+  // Inject structId attributes if template is non-empty
+  if (template) {
+    const seed = normalizeStructSeed(id, template)
+    template = injectStructIdsIntoTemplate(template, seed)
+  }
 
   // Use JSON.stringify to safely serialize all string content.
   // This prevents backticks, ${}, and other special characters from breaking
@@ -399,16 +407,15 @@ function transformKpaToModule(
   // Generate deps code for dynamic imports using pre-resolved paths
   const depsCode = generateDepsCode(resolvedDeps)
 
-  return `
-    export default {
-      path: ${pathStr},
-      template: ${templateStr},
-      style: ${styleStr},
-      script: ${scriptStr},
-      scriptMap: ${scriptMapStr},
-      deps: ${depsCode}
-    };
-  `
+  return `{
+    path: ${pathStr},
+    template: ${templateStr},
+    style: ${styleStr},
+    script: ${scriptStr},
+    scriptMap: ${scriptMapStr},
+    deps: ${depsCode},
+    structAttr: 'data-k-struct', // Added field for structId attribute key
+  }`
 }
 
 /* -------------------------------------------------------------------------- */
