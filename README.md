@@ -147,6 +147,32 @@ executable script code — they can break evaluation when scripts are wrapped or
 This behavior is intentional and prevents syntax errors caused by inline sourcemap
 comments in dynamically evaluated code.
 
+## Plugin → Core Contract
+
+This plugin produces `ComponentSource` objects with the following structure:
+
+```typescript
+interface ComponentSource {
+  contractVersion: string;           // Module contract version (e.g., "1.0.0")
+  path: string;                      // Normalized POSIX-style path to .kpa file
+  template: string;                  // HTML template (may be empty)
+  style: string;                     // Compiled CSS (may be empty)
+  script: string;                    // Wrapped function: '(() => { code })()'
+  scriptMap: object | null;          // Source map for debugging
+  deps: Record<string, () => Promise<unknown>>; // Dynamic imports
+  structAttr: string;                // Attribute for reconciliation (e.g., 'data-k-struct')
+}
+```
+
+**Guarantees:**
+- All string fields are JSON-serialized to prevent injection vulnerabilities
+- TypeScript in `[ts]` blocks is transpiled to JavaScript
+- SCSS/SASS in style blocks is compiled to CSS
+- Templates contain injected structural identity attributes for DOM reconciliation
+- Script functions always return valid component controller objects
+
+For detailed integration contracts, see the [Integration Contracts Documentation](https://github.com/koppajs/koppajs-example/blob/main/INTEGRATION_CONTRACTS.md).
+
 ## Community & Contribution
 
 Issues and PRs welcome:

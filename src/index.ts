@@ -15,6 +15,7 @@ import {
 } from './utils/extractImports.js'
 import { normalizeStructSeed } from './utils/structId.js'
 import { injectStructIdsIntoTemplate } from './utils/injectStructIds.js'
+import { MODULE_CONTRACT_VERSION } from './module-contract.js'
 
 /* -------------------------------------------------------------------------- */
 /*  Plugin Options                                                            */
@@ -302,45 +303,59 @@ function transpileScriptBlock(
     return { code: 'return { state: {} };', deps: new Map() }
   }
 
-  // Extract imports from the source code BEFORE transpilation.
-  // This detects duplicate identifiers and removes import declarations.
-  const { deps, strippedCode } = extractImports(script.content, filePath)
+  try {
+    // Extract imports from the source code BEFORE transpilation.
+    // This detects duplicate identifiers and removes import declarations.
+    const { deps, strippedCode } = extractImports(script.content, filePath)
 
-  let js: JsTranspileResult
+    let js: JsTranspileResult
 
-  if (script.lang === 'ts') {
-    const tsconfigPath = options.tsconfigFile
-      ? path.resolve(globalThis.process.cwd(), options.tsconfigFile)
-      : undefined
+    if (script.lang === 'ts') {
+      const tsconfigPath = options.tsconfigFile
+        ? path.resolve(globalThis.process.cwd(), options.tsconfigFile)
+        : undefined
 
-    js = transpileToJs(strippedCode, tsconfigPath)
-  } else {
-    js = { code: strippedCode }
-  }
+      js = transpileToJs(strippedCode, tsconfigPath)
+    } else {
+      js = { code: strippedCode }
+    }
 
-  const { isComposition, dataKeys, methodKeys } = analyzeScriptForComposition(js.code)
+    const { isComposition, dataKeys, methodKeys } = analyzeScriptForComposition(js.code)
 
-  // Legacy mode: developer controls the return value manually.
-  if (!isComposition) {
-    return { ...js, deps }
-  }
+    // Legacy mode: developer controls the return value manually.
+    if (!isComposition) {
+      // Try to parse the code to catch syntax errors
+      try {
+        // This will throw if the code is invalid
+        // eslint-disable-next-line no-new-func
+        new Function(js.code)
+      } catch {
+        // Fallback to minimal controller
+        return { code: 'return { state: {} };', deps: new Map() }
+      }
+      return { ...js, deps }
+    }
 
-  const propsLines: string[] = []
+    const propsLines: string[] = []
 
-  if (dataKeys.length > 0) {
-    propsLines.push(`  state: { ${dataKeys.join(', ')} }`)
-  }
+    if (dataKeys.length > 0) {
+      propsLines.push('  state: { ' + dataKeys.join(', ') + ' }')
+    }
 
-  if (methodKeys.length > 0) {
-    propsLines.push(`  methods: { ${methodKeys.join(', ')} }`)
-  }
+    if (methodKeys.length > 0) {
+      propsLines.push('  methods: { ' + methodKeys.join(', ') + ' }')
+    }
 
-  const propsObject = propsLines.length > 0 ? `{\n${propsLines.join(',\n')}\n}` : `{}`
+    const propsObject = propsLines.length > 0 ? '{\n' + propsLines.join(',\n') + '\n}' : '{}'
 
-  return {
-    code: `${js.code}\n\nreturn ${propsObject};`,
-    map: js.map,
-    deps,
+    return {
+      code: js.code + '\n\nreturn ' + propsObject + ';',
+      map: js.map,
+      deps,
+    }
+  } catch {
+    // Any error in transpilation or analysis falls back to minimal controller
+    return { code: 'return { state: {} };', deps: new Map() }
   }
 }
 
@@ -401,21 +416,22 @@ export function transformKpaToModule(
   const pathStr = JSON.stringify(normalizePath(id))
   const templateStr = JSON.stringify(template)
   const styleStr = JSON.stringify(style)
-  const scriptStr = JSON.stringify(`(() => { ${scriptBody} })()`)
+  const scriptStr = JSON.stringify('(() => { ' + scriptBody + ' })()')
   const scriptMapStr = scriptResult.map ? JSON.stringify(scriptResult.map) : 'null'
 
   // Generate deps code for dynamic imports using pre-resolved paths
   const depsCode = generateDepsCode(resolvedDeps)
 
-  return `{
-    path: ${pathStr},
-    template: ${templateStr},
-    style: ${styleStr},
-    script: ${scriptStr},
-    scriptMap: ${scriptMapStr},
-    deps: ${depsCode},
-    structAttr: 'data-k-struct', // Added field for structId attribute key
-  }`
+  return '{\n' +
+    `    contractVersion: '${MODULE_CONTRACT_VERSION}',\n` +
+    '    path: ' + pathStr + ',\n' +
+    '    template: ' + templateStr + ',\n' +
+    '    style: ' + styleStr + ',\n' +
+    '    script: ' + scriptStr + ',\n' +
+    '    scriptMap: ' + scriptMapStr + ',\n' +
+    '    deps: ' + depsCode + ',\n' +
+    "    structAttr: 'data-k-struct',\n" +
+    '  }'
 }
 
 /* -------------------------------------------------------------------------- */
@@ -493,6 +509,7 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
               if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
                 // Inside project root - use Vite root-relative specifier
                 spec = '/' + rel
+
               } else {
                 // Outside project root - use the resolved id as-is
                 spec = resolved.id

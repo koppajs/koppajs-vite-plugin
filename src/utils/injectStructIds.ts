@@ -9,21 +9,22 @@ const VOID_ELEMENTS = new Set([
 
 export function injectStructIdsIntoTemplate(templateHtml: string, seed: string): string {
   const nextId = createStructIdFactory(seed);
-  // Regex to match HTML tags (not comments, not doctype)
-  // <tag ...> or <tag .../>
-  // We will not match text nodes, comments, or doctype
-  return templateHtml.replace(/<([a-zA-Z0-9\-]+)([^>]*?)(\/)?/g, (match, tag, attrs, selfClose) => {
-    // Skip doctype
-    if (/^!/.test(tag)) return match;
-    // If already has the struct attribute anywhere in the tag, return the tag unchanged (preserve formatting)
-    const attrRegex = new RegExp(`\\s${STRUCT_ATTR}(=|\\s|>|$)`);
-    if (attrRegex.test(match)) return match;
-    // Only inject into normal/custom elements, not script/style/svg/textarea
-    // (But custom elements with - are included)
-    // Add attribute before closing > or />
+  // Regex to match HTML opening tags: <tag ...> or <tag .../> 
+  // Captures: (1) tag name, (2) attributes, (3) optional self-close slash, (4) closing >
+  const tagRegex = /<([a-zA-Z][a-zA-Z0-9\-]*)([^>]*?)(\/?)>/g;
+  
+  return templateHtml.replace(tagRegex, (match, tag, attrs, selfClose) => {
+    // Skip doctype, comments
+    if (tag.startsWith('!')) return match;
+    
+    // If already has the struct attribute, return unchanged
+    if (attrs.includes(STRUCT_ATTR + '=') || attrs.includes(STRUCT_ATTR + ' ')) {
+      return match;
+    }
+    
     const id = nextId();
     const inject = ` ${STRUCT_ATTR}="${id}"`;
-    // Place before selfClose or >
+    
     if (selfClose) {
       return `<${tag}${attrs}${inject}/>`;
     } else {

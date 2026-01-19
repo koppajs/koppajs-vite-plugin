@@ -11,10 +11,11 @@ describe('transformKpaToModule structId injection', () => {
     const code = '[template]<div><span></span><b></b></div>[/template]'
     const id = '/foo/bar.kpa'
     const output = transformKpaToModule(code, id, options, resolvedDeps)
-    // The output is a JS module string; extract the template JSON payload
-    const match = output.match(/template:\s*([`'"])(.*?)\1/s)
+    // The output is a JS object literal string; extract the template JSON payload
+    // Use a regex that properly handles JSON-escaped strings (with \")
+    const match = output.match(/template:\s*"((?:[^"\\]|\\.)*)"/s)
     expect(match).toBeTruthy()
-    const templateStr = match ? match[2] : ''
+    const templateStr = match ? match[1] : ''
     // Should contain struct attribute
     expect(templateStr).toMatch(new RegExp(`${STRUCT_ATTR}=`))
     // Should have as many as elements (div, span, b)
