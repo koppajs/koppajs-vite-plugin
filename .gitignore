@@ -8,7 +8,6 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-pnpm-lock.yaml
 package-lock.json
 dist
 dist-ssr
@@ -32,4 +31,4 @@ coverage
 *.sw?
 **/*_del
 ---*
-.ai/
+.local/

@@ -1,9 +1,9 @@
 name: CI
 
+# CI runs on pull requests only.
+# Direct pushes to develop/main are discouraged; use PRs for code review.
 on:
   pull_request:
-    branches: [develop, main]
-  push:
     branches: [develop, main]
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
           cache: pnpm
 
       - name: Install
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
         run: pnpm typecheck

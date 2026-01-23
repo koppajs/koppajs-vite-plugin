@@ -1,5 +1,15 @@
 name: Release
 
+# Release workflow triggered by version tags.
+# Process:
+#   1. Merge develop → main via PR
+#   2. Ensure package.json version is updated (e.g., "3.0.1")
+#   3. Tag main with matching version: git tag v3.0.1 && git push origin v3.0.1
+#   4. This workflow runs quality gate, creates GitHub Release, and publishes to npm
+#
+# Required repository secrets:
+#   - NPM_TOKEN: npm access token with publish permissions for @koppajs scope
+
 on:
   push:
     tags:
@@ -30,7 +40,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Install
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Quality Gate
         run: |
