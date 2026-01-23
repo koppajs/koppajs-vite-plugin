@@ -92,12 +92,12 @@
     "typescript": "^5.7.2",
     "vite": "^7.2.6",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^4.0.15"
+    "vitest": "^4.0.15",
+    "fflate": "^0.8.2"
   },
   "dependencies": {
     "acorn": "^8.15.0",
     "autoprefixer": "^10.4.16",
-    "fflate": "^0.8.2",
     "postcss": "^8.4.31",
     "sass": "^1.82.0"
   },
