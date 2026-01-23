@@ -16,6 +16,7 @@ import {
 import { normalizeStructSeed } from './utils/structId.js'
 import { injectStructIdsIntoTemplate } from './utils/injectStructIds.js'
 import { MODULE_CONTRACT_VERSION } from './module-contract.js'
+import { STRUCT_ATTR } from './utils/identityConstants.js'
 
 /* -------------------------------------------------------------------------- */
 /*  Plugin Options                                                            */
@@ -327,7 +328,7 @@ function transpileScriptBlock(
       // Try to parse the code to catch syntax errors
       try {
         // This will throw if the code is invalid
-        // eslint-disable-next-line no-new-func
+
         new Function(js.code)
       } catch {
         // Fallback to minimal controller
@@ -346,7 +347,8 @@ function transpileScriptBlock(
       propsLines.push('  methods: { ' + methodKeys.join(', ') + ' }')
     }
 
-    const propsObject = propsLines.length > 0 ? '{\n' + propsLines.join(',\n') + '\n}' : '{}'
+    const propsObject =
+      propsLines.length > 0 ? '{\n' + propsLines.join(',\n') + '\n}' : '{}'
 
     return {
       code: js.code + '\n\nreturn ' + propsObject + ';',
@@ -372,10 +374,14 @@ function transpileStyleBlocks(styles: StyleBlock[]): string {
   const cssParts: string[] = []
 
   for (const block of styles) {
+    const content = block.content.trim()
+    if (!content) continue
+
     if (block.lang === 'css') {
       cssParts.push(block.content)
     } else {
-      cssParts.push(transpileToCss(block.content, block.lang))
+      const css = transpileToCss(block.content, block.lang)
+      if (css) cssParts.push(css)
     }
   }
 
@@ -422,16 +428,30 @@ export function transformKpaToModule(
   // Generate deps code for dynamic imports using pre-resolved paths
   const depsCode = generateDepsCode(resolvedDeps)
 
-  return '{\n' +
+  return (
+    '{\n' +
     `    contractVersion: '${MODULE_CONTRACT_VERSION}',\n` +
-    '    path: ' + pathStr + ',\n' +
-    '    template: ' + templateStr + ',\n' +
-    '    style: ' + styleStr + ',\n' +
-    '    script: ' + scriptStr + ',\n' +
-    '    scriptMap: ' + scriptMapStr + ',\n' +
-    '    deps: ' + depsCode + ',\n' +
-    "    structAttr: 'data-k-struct',\n" +
+    '    path: ' +
+    pathStr +
+    ',\n' +
+    '    template: ' +
+    templateStr +
+    ',\n' +
+    '    style: ' +
+    styleStr +
+    ',\n' +
+    '    script: ' +
+    scriptStr +
+    ',\n' +
+    '    scriptMap: ' +
+    scriptMapStr +
+    ',\n' +
+    '    deps: ' +
+    depsCode +
+    ',\n' +
+    `    structAttr: '${STRUCT_ATTR}',\n` +
     '  }'
+  )
 }
 
 /* -------------------------------------------------------------------------- */
@@ -509,7 +529,6 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
               if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
                 // Inside project root - use Vite root-relative specifier
                 spec = '/' + rel
-
               } else {
                 // Outside project root - use the resolved id as-is
                 spec = resolved.id

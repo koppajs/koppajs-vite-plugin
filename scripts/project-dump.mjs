@@ -21,6 +21,7 @@
  * - Timestamped filenames: set DUMP_TIMESTAMPED=1 env var for additional timestamped files
  * - Delta reports: compares current run to previous state
  * - Clean dist: set DUMP_CLEAN_DIST=1 to remove dist/ before dump
+ * - ZIP artifact: set DUMP_CREATE_ZIP=1 to create a bundled ZIP of all outputs
  * - Output capped at 10 files maximum
  */
 
@@ -30,29 +31,474 @@ import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { zipSync, strToU8 } from 'fflate'
 
 const execFileAsync = promisify(execFile)
 
 // -------------------------
-// Paths
+// Paths (computed early, needed for options defaults)
 // -------------------------
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
 const PROJECT_ROOT = path.resolve(__dirname, '..')
-const OUT_DIR = path.join(PROJECT_ROOT, '.ai')
+
+// =========================
+// OPTIONS - Single Source of Truth
+// =========================
+/**
+ * Centralized configuration object for the project dump script.
+ *
+ * Environment variable precedence (where applicable):
+ * - Environment variables override the values defined here.
+ * - Check inline comments for supported env vars.
+ *
+ * To customize behavior, modify values in this object or set the corresponding
+ * environment variables before running the script.
+ */
+const options = {
+  // -------------------------
+  // Paths
+  // -------------------------
+  /** Root directory of the project (absolute path) */
+  projectRoot: PROJECT_ROOT,
+
+  /** Output directory name (relative to projectRoot) */
+  outputDirName: '.ai',
+
+  /**
+   * Explicit project name override.
+   * If not set, name is resolved from package.json or folder name.
+   */
+  projectName: undefined,
+
+  // -------------------------
+  // Output filenames (base names without extension)
+  // -------------------------
+  filenames: {
+    structure: 'project-structure',
+    dump: 'project-dump',
+    reportJson: 'project-report',
+    manifestJson: 'project-manifest',
+    stateJson: 'dump-state',
+    insightsMd: 'project-insights',
+    runManifestJson: 'manifest',
+  },
+
+  // -------------------------
+  // Feature flags
+  // -------------------------
+  /**
+   * Whether to write additional timestamped output files.
+   * Env override: DUMP_TIMESTAMPED=1
+   */
+  useTimestampedOutput: process.env.DUMP_TIMESTAMPED === '1',
+
+  /**
+   * Whether to clean dist/ before dump.
+   * Env override: DUMP_CLEAN_DIST=1
+   */
+  cleanDistBeforeDump: process.env.DUMP_CLEAN_DIST === '1',
+
+  /**
+   * Whether to create a ZIP artifact containing all dump outputs.
+   * Env override: DUMP_CREATE_ZIP=1
+   */
+  createZipArtifact: process.env.DUMP_CREATE_ZIP === '1',
+
+  /**
+   * Output directory for ZIP artifacts (absolute path or relative to projectRoot).
+   * Env override: DUMP_ZIP_OUTPUT_DIR
+   * Defaults to the same directory as other outputs (.ai/)
+   */
+  zipOutputDir: process.env.DUMP_ZIP_OUTPUT_DIR || undefined,
+
+  /**
+   * Whether to create a "latest" alias ZIP that mirrors the current run.
+   * Creates/overwrites: dump-<projectName>-latest.zip
+   * Env override: DUMP_CREATE_LATEST_ALIAS=1
+   * Disabled by default.
+   */
+  createLatestAlias: process.env.DUMP_CREATE_LATEST_ALIAS === '1',
+
+  /**
+   * Whether to enable numeric snapshot folders for ZIP artifacts.
+   * When enabled, each ZIP is placed in a new numbered subfolder (1, 2, 3, …).
+   * Env override: DUMP_SNAPSHOT_ENABLED=1
+   * Disabled by default.
+   */
+  snapshotEnabled: process.env.DUMP_SNAPSHOT_ENABLED === '1',
+
+  /**
+   * Base folder for snapshot storage (relative to projectRoot).
+   * Env override: DUMP_SNAPSHOT_DIR
+   * Defaults to 'src/.snapshot/'
+   */
+  snapshotDir: process.env.DUMP_SNAPSHOT_DIR || 'src/.snapshot',
+
+  // -------------------------
+  // Size limits (bytes)
+  // -------------------------
+  /** Max bytes per file included in project-dump.txt */
+  maxTextBytesPerFileDump: 200_000,
+
+  /** Max bytes per file for analysis heuristics */
+  maxTextBytesPerFileAnalysis: 400_000,
+
+  /** Soft cap for total dump size (20MB) */
+  maxDumpTotalBytes: 20_000_000,
+
+  /** Max bytes to sniff for binary detection */
+  maxBinarySniffBytes: 8000,
+
+  /** Max bytes for config file preview */
+  configPreviewMaxBytes: 120_000,
+
+  // -------------------------
+  // Display limits
+  // -------------------------
+  /** Max items shown in top-N lists (lint debt, etc.) */
+  topNLimit: 20,
+
+  /** Max items shown in delta reports (added/removed/modified) */
+  deltaMaxItems: 50,
+
+  /** Max cycles shown in import graph */
+  maxCyclesToShow: 20,
+
+  /** Max violations shown in import graph */
+  maxViolationsToShow: 50,
+
+  /** Max secrets findings shown */
+  maxSecretsFindingsToShow: 200,
+
+  /** Max markers in analysis output */
+  maxMarkersInOutput: 120,
+
+  /** Max imports files to show */
+  maxImportsFilesToShow: 20,
+
+  /** Max largest files to show */
+  maxLargestFilesToShow: 20,
+
+  /** Max dependencies to show in package summary */
+  maxDependenciesToShow: 120,
+
+  // -------------------------
+  // Excluded directories (names)
+  // -------------------------
+  /** Directory names to always exclude from dumps and scans */
+  ignoreDirNames: [
+    'node_modules',
+    '.git',
+    '.hg',
+    '.svn',
+    '.turbo',
+    '.next',
+    '.nuxt',
+    '.svelte-kit',
+    '.angular',
+    'dist',
+    'build',
+    'out',
+    'coverage',
+    'storybook-static',
+    'test-results',
+    '.cache',
+    '.parcel-cache',
+    '.vite',
+    '.husky',
+    '.vercel',
+    '.idea',
+    '.vscode',
+    'tmp',
+    'temp',
+    '.tmp',
+    '.pnpm-store',
+    '.snapshot',
+  ],
+
+  // -------------------------
+  // File patterns
+  // -------------------------
+  /** File name patterns to ignore (regexes) */
+  ignoreFilePatterns: [
+    /\.log$/i,
+    /\.tmp$/i,
+    /\.temp$/i,
+    /\.swp$/i,
+    /~$/i,
+    /\.bak$/i,
+    /\.orig$/i,
+    /\.DS_Store$/i,
+    // do not re-include dump outputs
+    /^---.*$/i,
+    /^project-.*$/i,
+  ],
+
+  /** File patterns indicating secrets (regexes) - these files are NEVER included in dumps */
+  secretFilePatterns: [
+    // Environment files
+    /^\.env$/i,
+    /^\.env\./i,
+    // Certificate and key files
+    /\.pem$/i,
+    /\.key$/i,
+    /\.p12$/i,
+    /\.pfx$/i,
+    /^id_rsa$/i,
+    /^id_rsa\./i,
+    /^id_ed25519$/i,
+    /^id_ed25519\./i,
+    /^id_ecdsa$/i,
+    /^id_dsa$/i,
+    // Credential and token files
+    /^credentials\./i,
+    /^credentials$/i,
+    /^token\./i,
+    /^token$/i,
+    /^tokens\./i,
+    /^secrets\./i,
+    /^secrets$/i,
+    /^secret\./i,
+    // Generic patterns
+    /secret/i,
+    /credential/i,
+    /private[_-]?key/i,
+  ],
+
+  /** Config files to suppress preview for (just include sha1 and size) */
+  configPreviewSuppress: ['pnpm-lock.yaml'],
+
+  // -------------------------
+  // Extensions
+  // -------------------------
+  /** Extensions recognized as text files */
+  textExtensions: [
+    '.js',
+    '.cjs',
+    '.mjs',
+    '.ts',
+    '.tsx',
+    '.jsx',
+    '.json',
+    '.md',
+    '.markdown',
+    '.txt',
+    '.html',
+    '.htm',
+    '.css',
+    '.scss',
+    '.sass',
+    '.less',
+    '.yml',
+    '.yaml',
+    '.xml',
+    '.svg',
+    '.env',
+    '.gitignore',
+    '.gitattributes',
+    '.eslintrc',
+    '.prettierrc',
+  ],
+
+  /** Extensions recognized as code files (for code-only heuristics) */
+  codeExtensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
+
+  // -------------------------
+  // Excluded patterns summary (for output headers)
+  // -------------------------
+  /** Human-readable summary of excluded patterns for transparency in output headers */
+  excludedPatternsSummary: [
+    'node_modules/',
+    'dist/',
+    'coverage/',
+    'storybook-static/',
+    'test-results/',
+    '.git/',
+    'build/',
+    '*.log',
+    '*.tmp',
+    '.env*',
+    '*.pem',
+    '*.key',
+    'id_rsa*',
+    'credentials.*',
+    'token.*',
+    'secrets.*',
+  ].join(', '),
+
+  // -------------------------
+  // Secret detection patterns (for secrets-scan)
+  // -------------------------
+  secretPatterns: [
+    { label: 'API_KEY', rx: /\bAPI_KEY\s*[=:]/gi },
+    { label: 'TOKEN', rx: /\bTOKEN\s*[=:]/gi },
+    { label: 'SECRET', rx: /\bSECRET\s*[=:]/gi },
+    { label: 'PASSWORD', rx: /\bPASSWORD\s*[=:]/gi },
+    { label: 'PRIVATE_KEY_HEADER', rx: /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/gi },
+    { label: 'AUTH_BEARER', rx: /authorization\s*:\s*bearer/gi },
+    { label: 'AWS_ACCESS_KEY', rx: /\bAWS_ACCESS_KEY_ID\s*[=:]/gi },
+    { label: 'AWS_SECRET', rx: /\bAWS_SECRET_ACCESS_KEY\s*[=:]/gi },
+    { label: 'GITHUB_TOKEN', rx: /\bGITHUB_TOKEN\s*[=:]/gi },
+    { label: 'NPM_TOKEN', rx: /\bNPM_TOKEN\s*[=:]/gi },
+    { label: 'AZURE_KEY', rx: /\bAZURE_\w*KEY\s*[=:]/gi },
+    { label: 'CLIENT_SECRET', rx: /\bCLIENT_SECRET\s*[=:]/gi },
+  ],
+
+  // -------------------------
+  // Config snapshot candidates (relative paths to check)
+  // -------------------------
+  configSnapshotCandidates: [
+    'package.json',
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+
+    'tsconfig.json',
+    'tsconfig.base.json',
+    'tsconfig.build.json',
+    'config/tsconfig.json',
+    'config/tsconfig.base.json',
+    'config/tsconfig.build.json',
+    'config/tsconfig.test.json',
+    'config/tsconfig.types.json',
+
+    'vite.config.ts',
+    'vite.config.js',
+    'vite.config.themes.ts',
+    'vitest.config.ts',
+    'vitest.config.js',
+    'vitest.setup.ts',
+    'jest.config.js',
+    'eslint.config.js',
+    'eslint.config.mjs',
+    '.eslintrc',
+    '.eslintrc.json',
+    '.prettierrc',
+    'prettier.config.js',
+    'biome.json',
+    'turbo.json',
+
+    // Storybook configs
+    '.storybook/main.ts',
+    '.storybook/main.js',
+    '.storybook/preview.ts',
+    '.storybook/preview.js',
+  ],
+
+  // -------------------------
+  // Utility functions (wired for external access)
+  // -------------------------
+  /** @type {typeof formatTimestamp} */
+  formatTimestamp: null, // Wired after function definition
+
+  /** @type {typeof buildDumpBaseName} */
+  buildDumpBaseName: null, // Wired after function definition
+}
+
+// =========================
+// Derived constants from options (for convenience)
+// =========================
+const OUT_DIR = path.join(options.projectRoot, options.outputDirName)
+
+// Convert arrays to Sets for efficient lookups
+const IGNORE_DIR_NAMES = new Set(options.ignoreDirNames)
+const CONFIG_PREVIEW_SUPPRESS = new Set(options.configPreviewSuppress)
+const TEXT_EXTENSIONS = new Set(options.textExtensions)
+const CODE_EXTENSIONS = new Set(options.codeExtensions)
+
+// Alias patterns arrays for direct usage
+const IGNORE_FILE_PATTERNS = options.ignoreFilePatterns
+const SECRET_FILE_PATTERNS = options.secretFilePatterns
+const SECRET_PATTERNS = options.secretPatterns
+const EXCLUDED_PATTERNS_SUMMARY = options.excludedPatternsSummary
+
+// Alias size limits
+const MAX_TEXT_BYTES_PER_FILE_DUMP = options.maxTextBytesPerFileDump
+const MAX_TEXT_BYTES_PER_FILE_ANALYSIS = options.maxTextBytesPerFileAnalysis
+const MAX_DUMP_TOTAL_BYTES = options.maxDumpTotalBytes
+const MAX_BINARY_SNIFF_BYTES = options.maxBinarySniffBytes
+const CONFIG_PREVIEW_MAX_BYTES = options.configPreviewMaxBytes
+
+// Alias feature flags
+const USE_TIMESTAMPED_OUTPUT = options.useTimestampedOutput
+const CLEAN_DIST_BEFORE_DUMP = options.cleanDistBeforeDump
+const CREATE_ZIP_ARTIFACT = options.createZipArtifact
+
+// Compute ZIP output directory (resolve relative paths against projectRoot)
+const ZIP_OUTPUT_DIR = options.zipOutputDir
+  ? path.isAbsolute(options.zipOutputDir)
+    ? options.zipOutputDir
+    : path.join(options.projectRoot, options.zipOutputDir)
+  : OUT_DIR
+
+// Whether to create a "latest" alias ZIP
+const CREATE_LATEST_ALIAS = options.createLatestAlias
+
+// Snapshot feature flags and paths
+const SNAPSHOT_ENABLED = options.snapshotEnabled
+const SNAPSHOT_DIR = path.isAbsolute(options.snapshotDir)
+  ? options.snapshotDir
+  : path.join(options.projectRoot, options.snapshotDir)
+
+// -------------------------
+// Project Name Resolution
+// -------------------------
 
 /**
- * Whether to write additional timestamped output files.
- * Set env var DUMP_TIMESTAMPED=1 to enable
+ * Sanitize a string for use as a filename.
+ * - Removes npm scopes (e.g., "@scope/")
+ * - Allows only [a-z0-9-]
+ * - Converts other characters/spaces to "-"
+ * - Collapses repeated "-"
+ * - Trims leading/trailing "-"
+ * - Lowercases output
+ * @param {string} name - The raw name to sanitize
+ * @returns {string} - The sanitized filename-safe string
  */
-const USE_TIMESTAMPED_OUTPUT = process.env.DUMP_TIMESTAMPED === '1'
+function sanitizeFileName(name) {
+  if (!name || typeof name !== 'string') return ''
+  return name
+    .replace(/^@[^/]+\//, '') // Remove npm scope (e.g., "@scope/")
+    .toLowerCase() // Lowercase first to simplify regex
+    .replace(/[^a-z0-9-]/g, '-') // Replace disallowed chars with "-"
+    .replace(/-+/g, '-') // Collapse repeated "-"
+    .replace(/^-+|-+$/g, '') // Trim leading/trailing "-"
+}
 
 /**
- * Whether to clean dist/ before dump.
- * Set env var DUMP_CLEAN_DIST=1 to enable
+ * Resolve the project name using the following priority:
+ * 1. options.projectName (if explicitly set)
+ * 2. package.json "name" field (if available)
+ * 3. Folder name of the project root
+ *
+ * The result is sanitized for safe use in filenames.
+ * @returns {Promise<string>} - The resolved and sanitized project name
  */
-const CLEAN_DIST_BEFORE_DUMP = process.env.DUMP_CLEAN_DIST === '1'
+async function resolveProjectName() {
+  // Priority 1: Explicit option
+  if (options.projectName) {
+    return sanitizeFileName(options.projectName)
+  }
+
+  // Priority 2: package.json name
+  try {
+    const pkgPath = path.join(options.projectRoot, 'package.json')
+    const pkgContent = await fs.readFile(pkgPath, 'utf8')
+    const pkg = JSON.parse(pkgContent)
+    if (pkg.name && typeof pkg.name === 'string') {
+      return sanitizeFileName(pkg.name)
+    }
+  } catch {
+    // package.json not found or invalid, fall through
+  }
+
+  // Priority 3: Folder name
+  const folderName = path.basename(options.projectRoot)
+  return sanitizeFileName(folderName)
+}
+
+/** Resolved project name (populated during main execution) */
+let resolvedProjectName = ''
 
 /**
  * Generate a filesystem-safe ISO timestamp (colons replaced with dashes).
@@ -69,6 +515,90 @@ function getRunTimestamp() {
 }
 
 /**
+ * Format a timestamp as "YYYY-MM-DD_HH-mm" using local time.
+ * @param {Date} [date=new Date()] - Date to format (defaults to now)
+ * @returns {string} Formatted timestamp string
+ */
+function formatTimestamp(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}_${hours}-${minutes}`
+}
+
+/**
+ * Build a standardized dump base name.
+ * @param {Object} params
+ * @param {string} params.projectName - Name of the project
+ * @param {string} params.timestamp - Timestamp string (e.g., from formatTimestamp())
+ * @returns {string} Formatted dump base name: "dump-<projectName>-<timestamp>"
+ */
+function buildDumpBaseName({ projectName, timestamp }) {
+  return `dump-${projectName}-${timestamp}`
+}
+
+// Wire utility functions into options for external access
+options.formatTimestamp = formatTimestamp
+options.buildDumpBaseName = buildDumpBaseName
+
+/**
+ * Determine the next numeric snapshot folder.
+ * Scans the snapshot directory for existing numeric folders (1, 2, 3, …)
+ * and returns the next available number.
+ *
+ * @returns {Promise<number>} The next snapshot folder number (starts at 1)
+ */
+async function getNextSnapshotNumber() {
+  try {
+    await fs.mkdir(SNAPSHOT_DIR, { recursive: true })
+    const entries = await fs.readdir(SNAPSHOT_DIR, { withFileTypes: true })
+
+    let maxNumber = 0
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      // Only consider purely numeric folder names
+      const parsed = parseInt(entry.name, 10)
+      if (!Number.isNaN(parsed) && String(parsed) === entry.name && parsed > maxNumber) {
+        maxNumber = parsed
+      }
+    }
+
+    return maxNumber + 1
+  } catch {
+    // If directory doesn't exist or can't be read, start at 1
+    return 1
+  }
+}
+
+/**
+ * Ensure the snapshot directory has a .gitignore file to exclude contents.
+ * Creates the file if it doesn't exist.
+ *
+ * @returns {Promise<void>}
+ */
+async function ensureSnapshotGitignore() {
+  const gitignorePath = path.join(SNAPSHOT_DIR, '.gitignore')
+  const gitignoreContent = `# Ignore all snapshot contents (auto-generated by project-dump)
+*
+!.gitignore
+`
+
+  try {
+    await fs.mkdir(SNAPSHOT_DIR, { recursive: true })
+    // Only write if file doesn't exist
+    try {
+      await fs.access(gitignorePath)
+    } catch {
+      await fs.writeFile(gitignorePath, gitignoreContent, 'utf8')
+    }
+  } catch (e) {
+    console.warn(`⚠️  Could not create snapshot .gitignore: ${e.message}`)
+  }
+}
+
+/**
  * Build output filename, optionally with timestamp suffix.
  * @param {string} base - Base name without extension (e.g. "project-dump")
  * @param {string} ext - Extension including dot (e.g. ".txt")
@@ -80,130 +610,16 @@ function outPath(base, ext, forceTimestamp = false) {
   return path.join(OUT_DIR, `${base}${suffix}${ext}`)
 }
 
-// Primary output paths (no timestamp)
-const OUT_STRUCTURE = outPath('project-structure', '.txt')
-const OUT_DUMP = outPath('project-dump', '.txt')
-const OUT_REPORT_JSON = outPath('project-report', '.json')
-const OUT_MANIFEST_JSON = outPath('project-manifest', '.json')
-const OUT_STATE_JSON = outPath('dump-state', '.json')
-const OUT_INSIGHTS_MD = outPath('project-insights', '.md')
+// Primary output paths (no timestamp) - using options.filenames
+const OUT_STRUCTURE = outPath(options.filenames.structure, '.txt')
+const OUT_DUMP = outPath(options.filenames.dump, '.txt')
+const OUT_REPORT_JSON = outPath(options.filenames.reportJson, '.json')
+const OUT_MANIFEST_JSON = outPath(options.filenames.manifestJson, '.json')
+const OUT_STATE_JSON = outPath(options.filenames.stateJson, '.json')
+const OUT_INSIGHTS_MD = outPath(options.filenames.insightsMd, '.md')
+const OUT_RUN_MANIFEST_JSON = outPath(options.filenames.runManifestJson, '.json')
 
-// -------------------------
-// Config
-// -------------------------
-const MAX_TEXT_BYTES_PER_FILE_DUMP = 200_000 // cap per file in project-dump.txt
-const MAX_TEXT_BYTES_PER_FILE_ANALYSIS = 400_000 // cap per file for analysis heuristics
-const MAX_DUMP_TOTAL_BYTES = 20_000_000 // soft cap for total dump (20MB)
-const MAX_BINARY_SNIFF_BYTES = 8000
-
-// Config snapshot preview caps
-const CONFIG_PREVIEW_MAX_BYTES = 120_000 // typical configs
-const CONFIG_PREVIEW_SUPPRESS = new Set([
-  'pnpm-lock.yaml', // do not embed lockfile preview
-])
-
-/** Directories to always exclude from dumps and scans */
-const IGNORE_DIR_NAMES = new Set([
-  'node_modules',
-  '.git',
-  '.hg',
-  '.svn',
-  '.turbo',
-  '.next',
-  '.nuxt',
-  '.svelte-kit',
-  '.angular',
-  'dist',
-  'build',
-  'out',
-  'coverage',
-  'storybook-static',
-  'test-results',
-  '.cache',
-  '.parcel-cache',
-  '.vite',
-  '.husky',
-  '.vercel',
-  '.idea',
-  '.vscode',
-  'tmp',
-  'temp',
-  '.tmp',
-  '.pnpm-store',
-])
-
-/** Summary of excluded patterns for header transparency */
-const EXCLUDED_PATTERNS_SUMMARY = [
-  'node_modules/',
-  'dist/',
-  'coverage/',
-  'storybook-static/',
-  'test-results/',
-  '.git/',
-  'build/',
-  '*.log',
-  '*.tmp',
-  '.env*',
-  'secrets/*',
-].join(', ')
-
-const IGNORE_FILE_PATTERNS = [
-  /\.log$/i,
-  /\.tmp$/i,
-  /\.temp$/i,
-  /\.swp$/i,
-  /~$/i,
-  /\.bak$/i,
-  /\.orig$/i,
-  /\.DS_Store$/i,
-
-  // do not re-include dump outputs
-  /^---.*$/i,
-  /^project-.*$/i,
-]
-
-const SECRET_FILE_PATTERNS = [
-  /^\.env(\.|$)/i,
-  /secret/i,
-  /credential/i,
-  /private/i,
-  /\.pem$/i,
-  /\.key$/i,
-  /\.p12$/i,
-]
-
-const TEXT_EXTENSIONS = new Set([
-  '.js',
-  '.cjs',
-  '.mjs',
-  '.ts',
-  '.tsx',
-  '.jsx',
-  '.json',
-  '.md',
-  '.markdown',
-  '.txt',
-  '.html',
-  '.htm',
-  '.css',
-  '.scss',
-  '.sass',
-  '.less',
-  '.yml',
-  '.yaml',
-  '.xml',
-  '.svg',
-  '.env',
-  '.gitignore',
-  '.gitattributes',
-  '.eslintrc',
-  '.prettierrc',
-])
-
-// CODE extensions (for code-only heuristics)
-const CODE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
-
-// Heuristic patterns (code-only)
+// Heuristic patterns (code-only) - these are not configurable
 const RX_TODO = /\b(TODO|FIXME|HACK)\b/g
 const RX_TS_IGNORE = /@ts-ignore|@ts-expect-error/g
 const RX_ANY = /\bany\b|as\s+any\b/g
@@ -216,27 +632,24 @@ const RX_REQUIRE = /\brequire\s*\(\s*['"][^'"]+['"]\s*\)/g
 const RX_FUNCTION = /\bfunction\b|\b\w+\s*=\s*\(?[^=]*\)?\s*=>|\b\w+\s*\([^=]*\)\s*{/g
 const RX_CLASS = /\bclass\s+\w+/g
 
-// Secret detection patterns (for secrets-scan)
-const SECRET_PATTERNS = [
-  { label: 'API_KEY', rx: /\bAPI_KEY\s*[=:]/gi },
-  { label: 'TOKEN', rx: /\bTOKEN\s*[=:]/gi },
-  { label: 'SECRET', rx: /\bSECRET\s*[=:]/gi },
-  { label: 'PASSWORD', rx: /\bPASSWORD\s*[=:]/gi },
-  { label: 'PRIVATE_KEY_HEADER', rx: /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/gi },
-  { label: 'AUTH_BEARER', rx: /authorization\s*:\s*bearer/gi },
-  { label: 'AWS_ACCESS_KEY', rx: /\bAWS_ACCESS_KEY_ID\s*[=:]/gi },
-  { label: 'AWS_SECRET', rx: /\bAWS_SECRET_ACCESS_KEY\s*[=:]/gi },
-  { label: 'GITHUB_TOKEN', rx: /\bGITHUB_TOKEN\s*[=:]/gi },
-  { label: 'NPM_TOKEN', rx: /\bNPM_TOKEN\s*[=:]/gi },
-  { label: 'AZURE_KEY', rx: /\bAZURE_\w*KEY\s*[=:]/gi },
-  { label: 'CLIENT_SECRET', rx: /\bCLIENT_SECRET\s*[=:]/gi },
-]
-
 // -------------------------
 // Utils
 // -------------------------
 function nowISO() {
   return new Date().toISOString()
+}
+
+/**
+ * Format bytes as human-readable string (KB, MB, GB).
+ * @param {number} bytes - Number of bytes
+ * @returns {string} Formatted string (e.g., "1.5 MB")
+ */
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / Math.pow(1024, i)
+  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
 
 /**
@@ -357,9 +770,9 @@ function summarizePackageJson(pkg) {
       devDependencies: devDeps.length,
       peerDependencies: peerDeps.length,
     },
-    dependencies: deps.sort().slice(0, 120),
-    devDependencies: devDeps.sort().slice(0, 120),
-    peerDependencies: peerDeps.sort().slice(0, 120),
+    dependencies: deps.sort().slice(0, options.maxDependenciesToShow),
+    devDependencies: devDeps.sort().slice(0, options.maxDependenciesToShow),
+    peerDependencies: peerDeps.sort().slice(0, options.maxDependenciesToShow),
   }
 }
 
@@ -517,42 +930,7 @@ function summarizeTsconfig(tsc, sourcePath) {
 // Config snapshots
 // -------------------------
 async function collectConfigSnapshots() {
-  const candidates = [
-    'package.json',
-    'pnpm-lock.yaml',
-    'pnpm-workspace.yaml',
-
-    'tsconfig.json',
-    'tsconfig.base.json',
-    'tsconfig.build.json',
-    'config/tsconfig.json',
-    'config/tsconfig.base.json',
-    'config/tsconfig.build.json',
-    'config/tsconfig.test.json',
-    'config/tsconfig.types.json',
-
-    'vite.config.ts',
-    'vite.config.js',
-    'vite.config.themes.ts',
-    'vitest.config.ts',
-    'vitest.config.js',
-    'vitest.setup.ts',
-    'jest.config.js',
-    'eslint.config.js',
-    'eslint.config.mjs',
-    '.eslintrc',
-    '.eslintrc.json',
-    '.prettierrc',
-    'prettier.config.js',
-    'biome.json',
-    'turbo.json',
-
-    // Storybook configs
-    '.storybook/main.ts',
-    '.storybook/main.js',
-    '.storybook/preview.ts',
-    '.storybook/preview.js',
-  ]
+  const candidates = options.configSnapshotCandidates
 
   const snapshots = []
   for (const relPath of candidates) {
@@ -646,7 +1024,7 @@ async function generateDeltaContent(prevState, currentState) {
   }
   modified.sort((a, b) => a.path.localeCompare(b.path))
 
-  const maxItems = 50
+  const maxItems = options.deltaMaxItems
   const lines = []
   lines.push(`- Previous run: **${prevState.generatedAt}**`)
   lines.push(`- Current run: **${currentState.generatedAt}**`)
@@ -1048,8 +1426,8 @@ async function generateLintDebtContent(fileMetas, prevState) {
   lines.push(`- TODO/FIXME/HACK: **${debtTotals.todoFixmeHack}**`)
   lines.push('')
 
-  // Top 20 for each category
-  const topN = 20
+  // Top N for each category
+  const topN = options.topNLimit
 
   lines.push('### Top 20 by eslint-disable')
   const topEslint = [...sortedFiles]
@@ -1255,7 +1633,7 @@ async function generateImportGraphContent(fileMetas) {
   if (cycles.length) {
     lines.push('### Circular Dependencies')
     lines.push('')
-    const maxCycles = 20
+    const maxCycles = options.maxCyclesToShow
     for (let i = 0; i < Math.min(cycles.length, maxCycles); i++) {
       lines.push(`${i + 1}. ${cycles[i].map((c) => `\`${c}\``).join(' → ')}`)
     }
@@ -1274,10 +1652,10 @@ async function generateImportGraphContent(fileMetas) {
     lines.push('')
     lines.push('| Type | Importer | Imported |')
     lines.push('| --- | --- | --- |')
-    for (const v of uniqueViolations.slice(0, 50)) {
+    for (const v of uniqueViolations.slice(0, options.maxViolationsToShow)) {
       lines.push(`| ${v.type} | \`${v.importer}\` | \`${v.imported}\` |`)
     }
-    if (uniqueViolations.length > 50) {
+    if (uniqueViolations.length > options.maxViolationsToShow) {
       lines.push(`| ... | ${uniqueViolations.length - 50} more | |`)
     }
     lines.push('')
@@ -1435,10 +1813,10 @@ async function generateSecretsScanContent(fileMetas) {
     outputLines.push('')
     outputLines.push('| File | Line | Pattern |')
     outputLines.push('| --- | --- | --- |')
-    for (const f of findings.slice(0, 200)) {
+    for (const f of findings.slice(0, options.maxSecretsFindingsToShow)) {
       outputLines.push(`| \`${f.file}\` | ${f.line} | ${f.label} |`)
     }
-    if (findings.length > 200) {
+    if (findings.length > options.maxSecretsFindingsToShow) {
       outputLines.push(`| ... | ${findings.length - 200} more | |`)
     }
   }
@@ -1579,10 +1957,10 @@ async function analyzeFiles(filesAbs) {
   }
 
   importGraph.filesWithMostImports.sort((a, b) => b.imports - a.imports)
-  importGraph.filesWithMostImports = importGraph.filesWithMostImports.slice(0, 20)
+  importGraph.filesWithMostImports = importGraph.filesWithMostImports.slice(0, options.maxImportsFilesToShow)
 
   largest.sort((a, b) => b.size - a.size)
-  const topLargest = largest.slice(0, 20)
+  const topLargest = largest.slice(0, options.maxLargestFilesToShow)
 
   const extSummary = [...byExt.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -1608,7 +1986,7 @@ async function analyzeFiles(filesAbs) {
     },
     extSummary,
     topLargest,
-    markers: markers.slice(0, 120),
+    markers: markers.slice(0, options.maxMarkersInOutput),
     importGraph,
     fileMetas,
   }
@@ -1627,6 +2005,7 @@ async function writeProjectDump(fileMetas, mode, duplicatesRemoved = 0) {
   out += `Discovery mode: ${mode === 'git' ? 'git ls-files' : 'filesystem walk'}\n`
   out += `Total included files: ${fileMetas.length}\n`
   out += `Excluded patterns: ${EXCLUDED_PATTERNS_SUMMARY}\n`
+  out += `Size limits: max ${formatBytes(MAX_TEXT_BYTES_PER_FILE_DUMP)}/file, max ${formatBytes(MAX_DUMP_TOTAL_BYTES)} total\n`
   if (duplicatesRemoved > 0) {
     out += `Duplicates removed: ${duplicatesRemoved}\n`
   }
@@ -1634,22 +2013,34 @@ async function writeProjectDump(fileMetas, mode, duplicatesRemoved = 0) {
   out += `\n`
 
   let dumpedBytes = 0
+  let skippedSecrets = 0
+  let skippedLargeFiles = 0
+  let skippedBinaryFiles = 0
 
   for (const f of fileMetas) {
     const abs = path.join(PROJECT_ROOT, f.path)
 
+    // SECURITY: Double-check secret files are never included (defense in depth)
+    if (isSecretPath(abs)) {
+      out += `\n\n===SECRET_FILE:${f.path}===\n[⛔ SECRET FILE EXCLUDED – This file matches secret patterns and is never included in dumps for security reasons.]\n`
+      skippedSecrets++
+      continue
+    }
+
     if (f.binary) {
       out += `\n\n===BINARY_FILE:${f.path}===\n[Binary file – content omitted]\n`
+      skippedBinaryFiles++
       continue
     }
 
     if (typeof f.textBytes === 'number' && f.textBytes > MAX_TEXT_BYTES_PER_FILE_DUMP) {
-      out += `\n\n===FILE:${f.path}===\n[Text file too large (${f.textBytes} bytes) – content omitted]\n`
+      out += `\n\n===LARGE_FILE:${f.path}===\n[⚠️ FILE TOO LARGE – Size: ${formatBytes(f.textBytes)}, Limit: ${formatBytes(MAX_TEXT_BYTES_PER_FILE_DUMP)}. Content omitted to prevent runaway dump size.]\n`
+      skippedLargeFiles++
       continue
     }
 
     if (dumpedBytes > MAX_DUMP_TOTAL_BYTES) {
-      out += `\n\n===DUMP_TRUNCATED===\n[Global dump cap reached – remaining files omitted]\n`
+      out += `\n\n===DUMP_TRUNCATED===\n[⚠️ TOTAL DUMP SIZE LIMIT REACHED – Limit: ${formatBytes(MAX_DUMP_TOTAL_BYTES)}. Remaining ${fileMetas.length - fileMetas.indexOf(f)} files omitted to prevent runaway dump size.]\n`
       break
     }
 
@@ -1661,14 +2052,74 @@ async function writeProjectDump(fileMetas, mode, duplicatesRemoved = 0) {
       out += `\n\n===FILE:${f.path}===\n`
       out += text
       if (truncated)
-        out += `\n\n[...TRUNCATED: file exceeded ${MAX_TEXT_BYTES_PER_FILE_DUMP} bytes]\n`
+        out += `\n\n[...TRUNCATED: file exceeded ${formatBytes(MAX_TEXT_BYTES_PER_FILE_DUMP)} limit]\n`
       dumpedBytes += Math.min(bytes, MAX_TEXT_BYTES_PER_FILE_DUMP)
     } catch (e) {
       out += `\n\n===FILE:${f.path}===\n[Could not read file: ${String(e?.message || e)}]\n`
     }
   }
 
+  // Add dump summary footer
+  out += `\n\n================================================================================\n`
+  out += `DUMP SUMMARY\n`
+  out += `================================================================================\n`
+  out += `Total bytes dumped: ${formatBytes(dumpedBytes)}\n`
+  if (skippedSecrets > 0) {
+    out += `Secret files excluded: ${skippedSecrets} (security protection)\n`
+  }
+  if (skippedLargeFiles > 0) {
+    out += `Large files skipped: ${skippedLargeFiles} (exceeded ${formatBytes(MAX_TEXT_BYTES_PER_FILE_DUMP)} limit)\n`
+  }
+  if (skippedBinaryFiles > 0) {
+    out += `Binary files skipped: ${skippedBinaryFiles}\n`
+  }
+  out += `================================================================================\n`
+
   await writeOutputFile(OUT_DUMP, out)
+}
+
+// -------------------------
+// Run manifest generation
+// -------------------------
+/**
+ * Generate a run manifest with metadata about this dump execution.
+ * Contains no sensitive data (no secrets, no env values).
+ *
+ * @param {Object} params
+ * @param {string} params.projectName - Sanitized project name
+ * @param {string} params.generatedAt - ISO timestamp of generation
+ * @param {string[]} params.outputFiles - Array of absolute paths to generated files
+ * @returns {Object} Run manifest object
+ */
+function generateRunManifest({ projectName, generatedAt, outputFiles }) {
+  // Build sanitized options summary (no secrets, no env values, no functions)
+  const optionsSummary = {
+    outputDirName: options.outputDirName,
+    useTimestampedOutput: options.useTimestampedOutput,
+    cleanDistBeforeDump: options.cleanDistBeforeDump,
+    createZipArtifact: options.createZipArtifact,
+    createLatestAlias: options.createLatestAlias,
+    zipOutputDir: options.zipOutputDir || options.outputDirName,
+    snapshotEnabled: options.snapshotEnabled,
+    snapshotDir: options.snapshotDir,
+    maxTextBytesPerFileDump: options.maxTextBytesPerFileDump,
+    maxTextBytesPerFileAnalysis: options.maxTextBytesPerFileAnalysis,
+    maxDumpTotalBytes: options.maxDumpTotalBytes,
+    topNLimit: options.topNLimit,
+    deltaMaxItems: options.deltaMaxItems,
+    ignoreDirNamesCount: options.ignoreDirNames.length,
+    textExtensionsCount: options.textExtensions.length,
+    codeExtensionsCount: options.codeExtensions.length,
+  }
+
+  return {
+    projectName,
+    generatedAt,
+    scriptFile: 'project-dump.mjs',
+    scriptVersion: 'v6',
+    options: optionsSummary,
+    outputFiles: outputFiles.map((f) => path.relative(options.projectRoot, f)),
+  }
 }
 
 // -------------------------
@@ -1739,16 +2190,163 @@ async function cleanDistDirectory() {
 }
 
 // -------------------------
+// ZIP Artifact Creation
+// -------------------------
+
+/**
+ * Files to include in the ZIP artifact (base names without path).
+ * Only includes core dump output files - excludes run manifest and other internal files.
+ * Order is lexicographic for deterministic output.
+ */
+const ZIP_INCLUDED_FILES = [
+  'dump-state.json',
+  'project-dump.txt',
+  'project-insights.md',
+  'project-manifest.json',
+  'project-report.json',
+  'project-structure.txt',
+]
+
+/**
+ * Create a ZIP artifact containing the generated dump outputs.
+ * When snapshot mode is enabled, the ZIP is placed in a new numbered subfolder.
+ *
+ * @param {Object} params
+ * @param {string} params.projectName - Sanitized project name
+ * @param {string} params.timestamp - Timestamp string from formatTimestamp()
+ * @returns {Promise<{zipPath: string, snapshotDir?: string, snapshotNumber?: number, includedFiles: string[]} | null>}
+ *   Returns null if ZIP creation is disabled or fails
+ */
+async function createZipArtifact({ projectName, timestamp }) {
+  if (!CREATE_ZIP_ARTIFACT) {
+    return null
+  }
+
+  // Build the ZIP base name following the naming convention
+  const zipBaseName = buildDumpBaseName({ projectName, timestamp })
+  const zipFileName = `${zipBaseName}.zip`
+
+  // Determine output directory (snapshot mode uses numbered subfolders)
+  let actualZipOutputDir = ZIP_OUTPUT_DIR
+  let snapshotNumber = null
+  let snapshotFolderPath = null
+
+  if (SNAPSHOT_ENABLED) {
+    // Ensure snapshot .gitignore exists
+    await ensureSnapshotGitignore()
+
+    // Get the next snapshot number
+    snapshotNumber = await getNextSnapshotNumber()
+    snapshotFolderPath = path.join(SNAPSHOT_DIR, String(snapshotNumber))
+    actualZipOutputDir = snapshotFolderPath
+  }
+
+  const zipPath = path.join(actualZipOutputDir, zipFileName)
+
+  // Ensure ZIP output directory exists
+  await fs.mkdir(actualZipOutputDir, { recursive: true })
+
+  // Mapping from ZIP_INCLUDED_FILES base names to actual output paths
+  const fileMapping = {
+    'dump-state.json': OUT_STATE_JSON,
+    'project-dump.txt': OUT_DUMP,
+    'project-insights.md': OUT_INSIGHTS_MD,
+    'project-manifest.json': OUT_MANIFEST_JSON,
+    'project-report.json': OUT_REPORT_JSON,
+    'project-structure.txt': OUT_STRUCTURE,
+  }
+
+  // Collect files that exist
+  const zipEntries = {}
+  const includedFiles = []
+
+  // Sort entries lexicographically for deterministic output
+  const sortedFileNames = [...ZIP_INCLUDED_FILES].sort()
+
+  for (const fileName of sortedFileNames) {
+    const filePath = fileMapping[fileName]
+    if (!filePath) {
+      continue
+    }
+
+    try {
+      const exists = await pathExists(filePath)
+      if (!exists) {
+        // dump-state.json is optional (only present after delta mode used)
+        if (fileName === 'dump-state.json') {
+          continue
+        }
+        console.warn(`⚠️  ZIP: Expected file not found: ${fileName}`)
+        continue
+      }
+
+      const content = await fs.readFile(filePath)
+      // Create entry path inside ZIP: <zipBaseName>/<fileName>
+      const entryPath = `${zipBaseName}/${fileName}`
+      zipEntries[entryPath] = content
+      includedFiles.push(fileName)
+    } catch (e) {
+      console.warn(`⚠️  ZIP: Could not read ${fileName}: ${e.message}`)
+    }
+  }
+
+  if (includedFiles.length === 0) {
+    console.warn(`⚠️  ZIP: No files to include, skipping ZIP creation`)
+    return null
+  }
+
+  try {
+    // Create ZIP using fflate (synchronous for simplicity, files are small)
+    const zipped = zipSync(zipEntries, {
+      // Use default compression level
+    })
+
+    await fs.writeFile(zipPath, zipped)
+
+    // Create "latest" alias if enabled (only when not in snapshot mode)
+    let latestZipPath = null
+    if (CREATE_LATEST_ALIAS && !SNAPSHOT_ENABLED) {
+      const latestZipFileName = `dump-${projectName}-latest.zip`
+      latestZipPath = path.join(ZIP_OUTPUT_DIR, latestZipFileName)
+      await fs.writeFile(latestZipPath, zipped)
+    }
+
+    return {
+      zipPath,
+      latestZipPath,
+      snapshotDir: snapshotFolderPath,
+      snapshotNumber,
+      includedFiles,
+    }
+  } catch (e) {
+    console.error(`❌ ZIP creation failed: ${e.message}`)
+    return null
+  }
+}
+
+// -------------------------
 // Main
 // -------------------------
 async function main() {
   await fs.mkdir(OUT_DIR, { recursive: true })
 
+  // Resolve project name (priority: options > package.json > folder name)
+  resolvedProjectName = await resolveProjectName()
+
   console.info(`🔎 Project dump starting… (v6)`)
   console.info(`📁 Root: ${PROJECT_ROOT}`)
+  console.info(`📛 Project: ${resolvedProjectName}`)
   console.info(`🗂️  Output: ${OUT_DIR}`)
   if (USE_TIMESTAMPED_OUTPUT) {
     console.info(`📅 Timestamped output: enabled`)
+  }
+  if (CREATE_ZIP_ARTIFACT) {
+    const zipDir = path.relative(PROJECT_ROOT, ZIP_OUTPUT_DIR)
+    console.info(`📦 ZIP artifact: enabled → ${zipDir}`)
+    if (SNAPSHOT_ENABLED) {
+      const snapshotDir = path.relative(PROJECT_ROOT, SNAPSHOT_DIR)
+      console.info(`📸 Snapshot mode: enabled → ${snapshotDir}`)
+    }
   }
 
   // Optional: clean dist before dump
@@ -1927,6 +2525,23 @@ async function main() {
   // Write consolidated insights file
   await writeOutputFile(OUT_INSIGHTS_MD, insightsSections.join('\n'))
 
+  // Generate and write run manifest
+  console.info(`📋 Generating run manifest…`)
+  const runManifest = generateRunManifest({
+    projectName: resolvedProjectName,
+    generatedAt,
+    outputFiles: [
+      OUT_STRUCTURE,
+      OUT_DUMP,
+      OUT_REPORT_JSON,
+      OUT_MANIFEST_JSON,
+      OUT_STATE_JSON,
+      OUT_INSIGHTS_MD,
+    ],
+  })
+  // Skip timestamping for manifest to stay within file cap
+  await writeOutputFile(OUT_RUN_MANIFEST_JSON, JSON.stringify(runManifest, null, 2), true)
+
   // Output summary
   const outputFiles = [
     OUT_STRUCTURE,
@@ -1935,12 +2550,44 @@ async function main() {
     OUT_MANIFEST_JSON,
     OUT_STATE_JSON,
     OUT_INSIGHTS_MD,
+    OUT_RUN_MANIFEST_JSON,
   ]
+
+  // Create ZIP artifact if enabled
+  let zipResult = null
+  if (CREATE_ZIP_ARTIFACT) {
+    console.info(`📦 Creating ZIP artifact…`)
+    const zipTimestamp = formatTimestamp(new Date(generatedAt))
+    zipResult = await createZipArtifact({
+      projectName: resolvedProjectName,
+      timestamp: zipTimestamp,
+    })
+    if (zipResult) {
+      console.info(`   ZIP: ${path.relative(PROJECT_ROOT, zipResult.zipPath)}`)
+      if (zipResult.snapshotNumber) {
+        console.info(`   Snapshot: #${zipResult.snapshotNumber}`)
+      }
+      if (zipResult.latestZipPath) {
+        console.info(`   Latest: ${path.relative(PROJECT_ROOT, zipResult.latestZipPath)}`)
+      }
+      console.info(`   Files included: ${zipResult.includedFiles.length}`)
+    }
+  }
 
   console.info(`✅ Done.`)
   console.info(`\nOutputs (${outputFiles.length} files):`)
   for (const f of outputFiles) {
     console.info(`- ${path.relative(PROJECT_ROOT, f)}`)
+  }
+  if (zipResult) {
+    console.info(`\nZIP artifact:`)
+    console.info(`- ${path.relative(PROJECT_ROOT, zipResult.zipPath)}`)
+    if (zipResult.snapshotNumber) {
+      console.info(`  (snapshot #${zipResult.snapshotNumber})`)
+    }
+    if (zipResult.latestZipPath) {
+      console.info(`- ${path.relative(PROJECT_ROOT, zipResult.latestZipPath)}`)
+    }
   }
 }
 

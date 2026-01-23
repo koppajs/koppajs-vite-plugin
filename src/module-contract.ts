@@ -1,24 +1,48 @@
 // Defines the fixed, versioned shape for the module object emitted by the Vite plugin
 
-export const MODULE_CONTRACT_VERSION = '1.0.0';
+export const MODULE_CONTRACT_VERSION = '1.0.0'
 
 export interface KoppaModule {
   /** Version of the contract enforced by the plugin */
-  contractVersion: typeof MODULE_CONTRACT_VERSION;
+  contractVersion: typeof MODULE_CONTRACT_VERSION
   /** Path to the source file */
-  path: string;
+  path: string
   /** HTML template string */
-  template: string;
+  template: string
   /** CSS string */
-  style: string;
+  style: string
   /** JS controller string */
-  script: string;
+  script: string
   /** Source map for the script, or null */
-  scriptMap: unknown | null;
-  /** Dependency map */
-  deps: Record<string, unknown>;
+  scriptMap: unknown | null
+  /**
+   * Dependency map of lazy loader functions, or null if no dependencies.
+   * Each value is a function that returns a Promise resolving to the imported module/export.
+   */
+  deps: Record<string, () => Promise<unknown>> | null
   /** Attribute used for struct identification */
-  structAttr: string;
+  structAttr: string
+}
+
+/**
+ * Validates that deps is either null or a plain object with all function values.
+ */
+function isValidDeps(
+  deps: unknown,
+): deps is Record<string, () => Promise<unknown>> | null {
+  if (deps === null) {
+    return true
+  }
+  if (typeof deps !== 'object' || Array.isArray(deps)) {
+    return false
+  }
+  // Check that all values are functions
+  for (const value of Object.values(deps as Record<string, unknown>)) {
+    if (typeof value !== 'function') {
+      return false
+    }
+  }
+  return true
 }
 
 export function validateKoppaModule(obj: any): obj is KoppaModule {
@@ -30,7 +54,7 @@ export function validateKoppaModule(obj: any): obj is KoppaModule {
     typeof obj.style === 'string' &&
     typeof obj.script === 'string' &&
     (typeof obj.scriptMap === 'object' || obj.scriptMap === null) &&
-    typeof obj.deps === 'object' &&
+    isValidDeps(obj.deps) &&
     typeof obj.structAttr === 'string'
-  );
+  )
 }

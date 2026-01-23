@@ -56,12 +56,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "test:ci": "vitest --run --coverage",
-    "lint:scripts": "eslint . --ext .ts,.js,.mjs,.cjs --fix",
-    "lint:styles": "stylelint \"**/*.{css,scss}\" --config .stylelintrc --fix || true",
-    "lint": "pnpm run lint:scripts && pnpm run lint:styles",
-    "format:scripts": "prettier --config prettier.config.mjs --write .",
-    "format:styles": "stylelint \"**/*.{css,scss}\" --config .stylelintrc --fix || true",
-    "format": "pnpm run format:scripts && pnpm run format:styles",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs --fix",
+    "format": "prettier --config prettier.config.mjs --write .",
     "list-structure": "git ls-files > ---project-structure",
     "dump-code": "node scripts/dump-code.js",
     "analyze-code": "node scripts/analyze-code.js",
@@ -102,6 +98,7 @@
   "dependencies": {
     "acorn": "^8.15.0",
     "autoprefixer": "^10.4.16",
+    "fflate": "^0.8.2",
     "postcss": "^8.4.31",
     "sass": "^1.82.0"
   },

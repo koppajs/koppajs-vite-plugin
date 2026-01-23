@@ -1,11 +1,10 @@
-// test/extractImports.test.ts
-import path from 'node:path'
+// test/utils/extractImports.test.ts
 import { describe, expect, it } from 'vitest'
 import {
   extractImports,
   generateDepsCode,
   type ResolvedImportInfo,
-} from '../src/utils/extractImports'
+} from '../../src/utils/extractImports'
 
 describe('extractImports', () => {
   describe('named imports', () => {

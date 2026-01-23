@@ -18,7 +18,7 @@
 	<h1 align="center">@koppajs/koppajs-vite-plugin</h1>
 	<h3 align="center">Official Vite plugin for KoppaJS Single File Components</h3>
 	<p align="center">
-		<i>The missing bridge between Vite and the .kpa format — fast, clean, seamless.</i>
+		<i>The intentional bridge between Vite and the .kpa format — explicit, minimal, predictable.</i>
 	</p>
 </div>
 
@@ -55,31 +55,34 @@
 
 ## What is this plugin?
 
-The official Vite integration for **KoppaJS**, designed to bring `.kpa` Single File Components to life.
+This is the **official Vite integration for KoppaJS**.
 
-Vite is fast. KoppaJS is minimal.
-This plugin makes them work together — **without magic, without overhead, without surprises**.
+Its responsibility is deliberately narrow:
+to transform `.kpa` Single File Components into **standard ES modules**
+that can participate in Vite’s normal module graph — nothing more, nothing less.
 
-It handles:
+Vite is fast. KoppaJS is minimal.  
+This plugin connects the two **without hidden behavior, runtime magic, or implicit coupling**.
 
-- Parsing `.kpa` files
-- Extracting template, style, and script blocks
-- Transforming them into ES modules
-- Compiling TypeScript inside `.kpa` blocks
-- Injecting them as fully ready KoppaJS component definitions
+Specifically, it:
 
-It is the glue that makes the KoppaJS development workflow seamless.
+- parses `.kpa` files,
+- extracts template, style, and script blocks,
+- compiles and normalizes their contents,
+- and emits deterministic ES module output understood by the KoppaJS core.
+
+It is a **build-time transformation layer**, not a framework extension.
 
 ## Features
 
-- **Native `.kpa` support**
-- **TypeScript inside `.kpa`**
-- **SCSS/SASS support**
-- **Template + Style + Script extraction**
-- **Zero-runtime magic**
-- **Fast HMR**
-- **Fully ESM-based**
-- **Tiny footprint**
+- **Native `.kpa` file support**
+- **TypeScript inside component scripts**
+- **SCSS / SASS compilation**
+- **Explicit template, style, and script extraction**
+- **Zero runtime behavior**
+- **Fast HMR through Vite’s native mechanisms**
+- **Pure ESM output**
+- **Minimal footprint and surface area**
 
 ## Installation
 
@@ -87,27 +90,39 @@ It is the glue that makes the KoppaJS development workflow seamless.
 pnpm add @koppajs/koppajs-core @koppajs/koppajs-vite-plugin -D
 ```
 
-No explicit configuration is required beyond having the plugin installed.
-The KoppaJS Vite plugin is automatically detected and activated as part of the KoppaJS toolchain.
+Add the plugin to your `vite.config.ts`:
+
+```ts
+import { defineConfig } from 'vite'
+import koppajsVitePlugin from '@koppajs/koppajs-vite-plugin'
+
+export default defineConfig({
+  plugins: [koppajsVitePlugin()],
+})
+```
+
+No additional configuration is required for basic usage.
 
 ## Usage & Behavior
 
-This plugin does **not** introduce a new runtime API and does **not** need to be
-manually invoked in application code.
+Once configured:
 
-Once installed:
+- `.kpa` files are resolved by Vite like any other module
+- transformations occur during dev and build
+- Hot Module Replacement works without custom handling
+- output modules are statically analyzable and deterministic
 
-- Vite automatically recognizes `.kpa` files
-- `.kpa` files participate in the normal Vite module graph
-- Hot Module Replacement works out of the box
-- Components are transformed transparently during build and dev
-
-There is no explicit “usage” step.
-The plugin operates purely as a **build-time transformation layer**.
+The plugin performs **no runtime work** and injects **no global state**.
+All behavior is confined to Vite’s build pipeline.
 
 ## How it works
 
-The plugin transforms `.kpa` files into standard ES modules:
+Each `.kpa` file is transformed into a plain ES module.
+
+The following example shows a **simplified representation** of the generated output,
+focusing on the core transformation result.
+The complete and binding runtime contract consumed by the KoppaJS core
+is defined in the **Plugin → Core Contract** section below.
 
 ```ts
 export default {
@@ -118,65 +133,73 @@ export default {
 }
 ```
 
-Supported transformations:
+Supported transformations include:
 
-- TS → JS
+- TypeScript → JavaScript
 - SCSS / SASS → CSS
-- Composition-style controllers
-- Legacy `return {}` controllers
+- composition-style controllers
+- legacy `return {}` controllers
+
+The output format is intentionally explicit to allow the KoppaJS core
+to remain small, predictable, and framework-agnostic.
 
 ## Debugging & Sourcemaps (Dynamic Code)
 
 KoppaJS component scripts are executed **dynamically at runtime** by the core.
-Because of this, inline `//# sourceMappingURL` comments **must not** be part of the
-executable script code — they can break evaluation when scripts are wrapped or minified.
+Because of this, inline `//# sourceMappingURL` comments **must not be embedded**
+directly into executable script strings.
 
 ### How sourcemaps are handled
 
-- The Vite plugin strips all `sourceMappingURL` and `sourceURL` comments
-  from generated component scripts.
-- Sourcemaps are preserved **as data** and exported separately as `scriptMap`
-  on the component definition.
-- The KoppaJS core runtime is responsible for re-attaching sourcemaps when executing
-  dynamic code (for example via `Blob` or `data:` URLs).
+- All `sourceMappingURL` and `sourceURL` comments are stripped during transformation
+- Sourcemaps are preserved as structured data and exposed as `scriptMap`
+- The KoppaJS core is responsible for attaching sourcemaps at runtime
+  (for example via `Blob` or `data:` URLs)
 
-> ⚠️ If the core does not explicitly attach the sourcemap at runtime,
-> dynamic component scripts will execute correctly,
-> but browser DevTools will not show original source mappings.
+> ⚠️ If the runtime does not explicitly reattach sourcemaps,
+> component scripts will execute correctly,
+> but browser DevTools will not display original source mappings.
 
-This behavior is intentional and prevents syntax errors caused by inline sourcemap
-comments in dynamically evaluated code.
+This behavior is intentional and prevents syntax errors in dynamically evaluated code.
 
 ## Plugin → Core Contract
 
 This plugin produces `ComponentSource` objects with the following structure:
 
-```typescript
+```ts
 interface ComponentSource {
-  contractVersion: string;           // Module contract version (e.g., "1.0.0")
-  path: string;                      // Normalized POSIX-style path to .kpa file
-  template: string;                  // HTML template (may be empty)
-  style: string;                     // Compiled CSS (may be empty)
-  script: string;                    // Wrapped function: '(() => { code })()'
-  scriptMap: object | null;          // Source map for debugging
-  deps: Record<string, () => Promise<unknown>>; // Dynamic imports
-  structAttr: string;                // Attribute for reconciliation (e.g., 'data-k-struct')
+  contractVersion: string
+  path: string
+  template: string
+  style: string
+  script: string
+  scriptMap: object | null
+  deps: Record<string, () => Promise<unknown>>
+  structAttr: string
 }
 ```
 
 **Guarantees:**
-- All string fields are JSON-serialized to prevent injection vulnerabilities
-- TypeScript in `[ts]` blocks is transpiled to JavaScript
-- SCSS/SASS in style blocks is compiled to CSS
-- Templates contain injected structural identity attributes for DOM reconciliation
-- Script functions always return valid component controller objects
 
-For detailed integration contracts, see the [Integration Contracts Documentation](https://github.com/koppajs/koppajs-example/blob/main/INTEGRATION_CONTRACTS.md).
+- All string fields are JSON-serialized
+- TypeScript blocks are transpiled before emission
+- Style blocks are compiled to plain CSS
+- Templates include structural identity attributes for reconciliation
+- Script functions always return valid controller objects
+
+For detailed integration semantics, see the
+[Integration Contracts Documentation](https://github.com/koppajs/koppajs-example/blob/main/INTEGRATION_CONTRACTS.md).
 
 ## Community & Contribution
 
-Issues and PRs welcome:
+Issues and pull requests are welcome:
+
 https://github.com/koppajs/koppajs-vite-plugin/issues
+
+Please keep contributions focused on:
+- correctness,
+- determinism,
+- and maintaining a minimal public surface.
 
 ## License
 
