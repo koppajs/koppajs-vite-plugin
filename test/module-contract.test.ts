@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { transformKpaToModule } from '../src/index'
-import { validateKoppaModule, MODULE_CONTRACT_VERSION } from '../src/module-contract'
+import { validateKoppaModule } from '../src/module-contract'
 import { STRUCT_ATTR } from '../src/utils/identityConstants'
 
 const options = {}
@@ -15,20 +15,17 @@ function parseOutputObject(output: string) {
 }
 
 describe('KoppaModule contract enforcement', () => {
-  it('emits contractVersion and passes validation', () => {
+  it('emits valid module and passes validation', () => {
     const code = '[template]<div></div>[/template][js]{}[/js][css].a{}[/css]'
     const id = '/test/file.kpa'
     const output = transformKpaToModule(code, id, options, resolvedDeps)
     const obj = parseOutputObject(output)
-    expect(obj.contractVersion).toBe(MODULE_CONTRACT_VERSION)
     expect(validateKoppaModule(obj)).toBe(true)
   })
 
   it('fails validation if shape changes', () => {
     // Remove a required field
     const broken = {
-      contractVersion: MODULE_CONTRACT_VERSION,
-      path: '/test/file.kpa',
       template: '<div></div>',
       style: '.a{}',
       // script missing
@@ -38,21 +35,10 @@ describe('KoppaModule contract enforcement', () => {
     }
     expect(validateKoppaModule(broken)).toBe(false)
   })
-
-  it('fails validation if contractVersion changes', () => {
-    const code = '[template]<div></div>[/template][js]{}[/js][css].a{}[/css]'
-    const id = '/test/file.kpa'
-    const output = transformKpaToModule(code, id, options, resolvedDeps)
-    const obj = parseOutputObject(output)
-    obj.contractVersion = '2.0.0'
-    expect(validateKoppaModule(obj)).toBe(false)
-  })
 })
 
 describe('KoppaModule deps field validation', () => {
   const baseModule = {
-    contractVersion: MODULE_CONTRACT_VERSION,
-    path: '/test/file.kpa',
     template: '<div></div>',
     style: '.a{}',
     script: '(() => { return { state: {} } })()',

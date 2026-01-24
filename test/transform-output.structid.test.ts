@@ -38,6 +38,6 @@ describe('transformKpaToModule structId injection', () => {
     const id = '/foo/bar.kpa'
     const output = transformKpaToModule(code, id, options, resolvedDeps)
     // Check if structAttr exists and equals the constant
-    expect(output).toMatch(new RegExp(`structAttr:\\s*['\"']${STRUCT_ATTR}['\"']`))
+    expect(output).toMatch(new RegExp(`structAttr:\\s*['"']${STRUCT_ATTR}['"']`))
   })
 })

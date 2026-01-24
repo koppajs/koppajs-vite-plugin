@@ -15,7 +15,6 @@ import {
 } from './utils/extractImports.js'
 import { normalizeStructSeed } from './utils/structId.js'
 import { injectStructIdsIntoTemplate } from './utils/injectStructIds.js'
-import { MODULE_CONTRACT_VERSION } from './module-contract.js'
 import { STRUCT_ATTR } from './utils/identityConstants.js'
 
 /* -------------------------------------------------------------------------- */
@@ -419,7 +418,6 @@ export function transformKpaToModule(
   // Use JSON.stringify to safely serialize all string content.
   // This prevents backticks, ${}, and other special characters from breaking
   // the generated ES module output.
-  const pathStr = JSON.stringify(normalizePath(id))
   const templateStr = JSON.stringify(template)
   const styleStr = JSON.stringify(style)
   const scriptStr = JSON.stringify('(() => { ' + scriptBody + ' })()')
@@ -430,10 +428,6 @@ export function transformKpaToModule(
 
   return (
     '{\n' +
-    `    contractVersion: '${MODULE_CONTRACT_VERSION}',\n` +
-    '    path: ' +
-    pathStr +
-    ',\n' +
     '    template: ' +
     templateStr +
     ',\n' +
@@ -574,7 +568,7 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
         })
       }
 
-      return transformKpaToModule(code, id, options, resolvedDeps)
+      return 'export default ' + transformKpaToModule(code, id, options, resolvedDeps)
     },
   }
 }

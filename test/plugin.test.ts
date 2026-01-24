@@ -1,6 +1,6 @@
 // test/plugin.test.ts
 import { describe, expect, it } from 'vitest'
-import koppajsVitePlugin from '../src/index'
+import koppajsVitePlugin, { transformKpaToModule } from '../src/index'
 
 // Access the internal transform function for testing
 // We need to test the module output directly, so we'll import and test against
@@ -10,6 +10,86 @@ describe('koppajsVitePlugin', () => {
     const plugin = koppajsVitePlugin()
     expect(plugin.name).toBe('koppajs-vite-plugin')
     expect(plugin.enforce).toBe('pre')
+  })
+})
+
+describe('plugin load() ESM output', () => {
+  const options = {}
+  const resolvedDeps = new Map()
+
+  /**
+   * Simulates the full ESM output as produced by the load() hook.
+   * load() returns: 'export default ' + transformKpaToModule(...)
+   */
+  function simulateLoadOutput(code: string, id: string): string {
+    return 'export default ' + transformKpaToModule(code, id, options, resolvedDeps)
+  }
+
+  it('produces output starting with export default', () => {
+    const code = '[template]<div>Hello</div>[/template][js]return { state: {} }[/js]'
+    const id = '/test/component.kpa'
+    const output = simulateLoadOutput(code, id)
+    expect(output.startsWith('export default ')).toBe(true)
+  })
+
+  it('produces syntactically valid ESM that can be parsed as a module', () => {
+    const code =
+      '[template]<div>Test</div>[/template][js]return { state: { count: 0 } }[/js][css].test{}[/css]'
+    const id = '/test/module.kpa'
+    const output = simulateLoadOutput(code, id)
+
+    // Verify it starts with export default
+    expect(output.startsWith('export default ')).toBe(true)
+
+    // The object literal after 'export default ' should be valid JS
+    const objectLiteral = output.slice('export default '.length)
+    expect(() => new Function(`return ${objectLiteral}`)).not.toThrow()
+  })
+
+  it('produces ESM with correct object structure after export default', () => {
+    const code =
+      '[template]<p>Content</p>[/template][ts]return { state: { name: "test" } }[/ts][scss].cls { color: red; }[/scss]'
+    const id = '/src/components/MyComponent.kpa'
+    const output = simulateLoadOutput(code, id)
+
+    // Extract and evaluate the object literal
+    const objectLiteral = output.slice('export default '.length)
+    const obj = new Function(`return ${objectLiteral}`)()
+
+    // Verify required fields exist and have correct types
+    expect(typeof obj.template).toBe('string')
+    expect(typeof obj.style).toBe('string')
+    expect(typeof obj.script).toBe('string')
+    // Template will have struct IDs injected, so check for content presence
+    expect(obj.template).toContain('Content</p>')
+  })
+
+  it('handles complex template literals in scripts while producing valid ESM', () => {
+    const code =
+      '[template]<div></div>[/template][js]const msg = `Hello ${name}!`; return { state: {} }[/js]'
+    const id = '/test/backticks.kpa'
+    const output = simulateLoadOutput(code, id)
+
+    // Must start with export default
+    expect(output.startsWith('export default ')).toBe(true)
+
+    // Object literal must be evaluable
+    const objectLiteral = output.slice('export default '.length)
+    const obj = new Function(`return ${objectLiteral}`)()
+
+    // Script should contain the original template literal
+    expect(obj.script).toContain('`Hello ${name}!`')
+  })
+
+  it('produces valid ESM even with empty blocks', () => {
+    const code = '[template][/template][js][/js]'
+    const id = '/test/empty.kpa'
+    const output = simulateLoadOutput(code, id)
+
+    expect(output.startsWith('export default ')).toBe(true)
+
+    const objectLiteral = output.slice('export default '.length)
+    expect(() => new Function(`return ${objectLiteral}`)).not.toThrow()
   })
 })
 
@@ -71,14 +151,12 @@ describe('transformKpaToModule output safety', () => {
     const style = '.class { content: "`"; }'
     const script = 'const msg = `test ${value}`;'
 
-    const pathStr = JSON.stringify('/test/file.kpa')
     const templateStr = JSON.stringify(template)
     const styleStr = JSON.stringify(style)
     const scriptStr = JSON.stringify(`(() => { ${script} })()`)
     const scriptMapStr = 'null'
 
     // Test that each individual property value can be parsed correctly
-    expect(() => JSON.parse(pathStr)).not.toThrow()
     expect(() => JSON.parse(templateStr)).not.toThrow()
     expect(() => JSON.parse(styleStr)).not.toThrow()
     expect(() => JSON.parse(scriptStr)).not.toThrow()
@@ -90,7 +168,6 @@ describe('transformKpaToModule output safety', () => {
 
     // Create an object literal expression (non-module syntax) that can be evaluated
     const objectCode = `({
-      path: ${pathStr},
       template: ${templateStr},
       style: ${styleStr},
       script: ${scriptStr},
@@ -103,7 +180,6 @@ describe('transformKpaToModule output safety', () => {
 
     // Evaluate the object and verify its contents
     const result = new Function(`return ${objectCode}`)()
-    expect(result.path).toBe('/test/file.kpa')
     expect(result.template).toBe(template)
     expect(result.style).toBe(style)
     expect(result.script).toContain('const msg = `test ${value}`;')

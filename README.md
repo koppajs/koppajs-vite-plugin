@@ -126,7 +126,6 @@ is defined in the **Plugin → Core Contract** section below.
 
 ```ts
 export default {
-  path: '.../component.kpa',
   template: '<escaped-template>',
   style: '<compiled-css>',
   script: '(()=>{ /* controller */ })()',
@@ -168,8 +167,6 @@ This plugin produces `ComponentSource` objects with the following structure:
 
 ```ts
 interface ComponentSource {
-  contractVersion: string
-  path: string
   template: string
   style: string
   script: string
