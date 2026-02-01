@@ -3,8 +3,9 @@ import { normalizeStructSeed } from '../../src/utils/structId'
 import { injectStructIdsIntoTemplate } from '../../src/utils/injectStructIds'
 
 describe('structId injection determinism', () => {
-  const templateA = `<div><span>Hello</span><input/></div>`
-  const templateB = `<div><span>World</span><input/></div>`
+  // Use custom elements (tags with hyphen) since only they get structIds
+  const templateA = `<div><my-component>Hello</my-component><other-el/></div>`
+  const templateB = `<div><my-component>World</my-component><other-el/></div>`
   const id1 = '/path/to/fileA'
   const id2 = '/path/to/fileB'
 

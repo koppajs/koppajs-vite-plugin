@@ -78,6 +78,12 @@ export function extractImports(code: string, filePath: string): ExtractImportsRe
       // Side-effect import like `import "module"` - we skip these
       continue
     }
+ 
+    // Skip type-only imports completely - they don't need runtime deps
+    // e.g., `import type { Foo } from "..."` has importClause.isTypeOnly = true
+    if (importClause.isTypeOnly) {
+      continue
+    }
 
     // Handle default import: import X from "..."
     if (importClause.name) {
@@ -94,6 +100,12 @@ export function extractImports(code: string, filePath: string): ExtractImportsRe
     const namedBindings = importClause.namedBindings
     if (namedBindings && ts.isNamedImports(namedBindings)) {
       for (const element of namedBindings.elements) {
+        // Skip type-only named imports within a value import
+        // e.g., `import { type Foo, Bar } from "..."` - skip Foo, keep Bar
+        if (element.isTypeOnly) {
+          continue
+        }
+
         const localName = element.name.text
         const exportName = element.propertyName?.text ?? localName
 
