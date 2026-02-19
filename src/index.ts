@@ -85,22 +85,20 @@ function extractFirstBlock(
 }
 
 /**
- * Extracts all matching blocks from the source.
+ * Extracts all matching blocks from the source, preserving source order.
+ * Uses a single regex pass to match all tag types simultaneously,
+ * so interleaved blocks (e.g. [scss]...[css]...) keep their original order.
  */
 function extractAllBlocks(
   code: string,
   tags: string,
 ): { tag: string; content: string }[] {
   const results: { tag: string; content: string }[] = []
-  const tagList = tags.split('|')
+  const regex = new RegExp(`\\[(${tags})\\]([\\s\\S]*?)\\[\\/(?:${tags})\\]`, 'g')
+  let match: RegExpExecArray | null
 
-  for (const tag of tagList) {
-    const regex = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'g')
-    let match: RegExpExecArray | null
-
-    while ((match = regex.exec(code)) !== null) {
-      results.push({ tag, content: match[1]?.trim() ?? '' })
-    }
+  while ((match = regex.exec(code)) !== null) {
+    results.push({ tag: match[1]!, content: match[2]?.trim() ?? '' })
   }
 
   return results
@@ -475,7 +473,8 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
     },
 
     resolveId(source, importer) {
-      if (source.endsWith('.kpa') && importer) {
+      // Only resolve relative .kpa imports — let Vite handle alias/bare imports
+      if (source.endsWith('.kpa') && importer && (source.startsWith('./') || source.startsWith('../'))) {
         return normalizePath(path.resolve(path.dirname(importer), source))
       }
       return null
@@ -568,7 +567,7 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
         })
       }
 
-      return 'export default ' + transformKpaToModule(code, id, options, resolvedDeps)
+      return 'export default ' + transformKpaToModule(code, importerId, options, resolvedDeps)
     },
   }
 }

@@ -24,7 +24,7 @@
     "type": "git",
     "url": "https://github.com/koppajs/koppajs-vite-plugin"
   },
-  "description": "Koppajs Vite Plugin - Seamless Integration for Koppajs Framework with Vite",
+  "description": "KoppaJS Vite Plugin - Seamless Integration for KoppaJS Framework with Vite",
   "keywords": [
     "koppa",
     "koppajs",

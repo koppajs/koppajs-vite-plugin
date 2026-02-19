@@ -30,7 +30,9 @@ function transpileToJs(tsCode: string, tsconfigPath?: string): JsTranspileResult
           return match
         }
         return ''
-      }),
+      })
+      // Strip trailing commas that are valid in JSONC but not in JSON
+      .replace(/,\s*([}\]])/g, '$1'),
     )
 
     compilerOptions = tsConfig.compilerOptions ?? {}
