@@ -20,7 +20,9 @@ Changes will only appear here when they:
 
 ---
 
-## [0.1.0] — Baseline Plugin Release
+## [1.0.0] — Baseline Plugin Release
+
+**2026-03-01**
 
 This release establishes the **stable baseline** of the `koppajs-vite-plugin`.
 
