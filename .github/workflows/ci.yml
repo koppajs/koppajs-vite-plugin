@@ -3,6 +3,8 @@ name: CI
 # CI runs on pull requests only.
 # Direct pushes to develop/main are discouraged; use PRs for code review.
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [develop, main]
 

@@ -9,7 +9,7 @@
 <div align="center">
 	<a href="https://www.npmjs.com/package/@koppajs/koppajs-vite-plugin"><img src="https://img.shields.io/npm/v/@koppajs/koppajs-vite-plugin?style=flat-square" alt="npm version"></a>
 	<a href="https://github.com/koppajs/koppajs-vite-plugin/actions"><img src="https://img.shields.io/github/actions/workflow/status/koppajs/koppajs-vite-plugin/ci.yml?branch=main&style=flat-square" alt="CI Status"></a>
-	<a href="./LICENSE"><img src="https://img.shields.io/github/license/koppajs/koppajs-vite-plugin?style=flat-square" alt="License"></a>
+	<a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License"></a>
 </div>
 
 <br>
@@ -201,4 +201,4 @@ Please keep contributions focused on:
 
 ## License
 
-Apache License 2.0 — © 2025 KoppaJS, Bastian Bensch
+Apache License 2.0 — © 2026 KoppaJS, Bastian Bensch
