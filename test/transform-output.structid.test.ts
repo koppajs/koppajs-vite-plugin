@@ -8,7 +8,8 @@ const resolvedDeps = new Map()
 
 describe('transformKpaToModule structId injection', () => {
   it('injects data-k-struct attributes only into custom elements', () => {
-    const code = '[template]<div><my-component></my-component><other-el></other-el></div>[/template]'
+    const code =
+      '[template]<div><my-component></my-component><other-el></other-el></div>[/template]'
     const id = '/foo/bar.kpa'
     const output = transformKpaToModule(code, id, options, resolvedDeps)
     // The output is a JS object literal string; extract the template JSON payload

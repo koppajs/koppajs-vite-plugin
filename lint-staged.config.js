@@ -1,4 +1,7 @@
 export default {
-  '**/*.{ts,js,tsx,mjs,cjs,json}': ['pnpm lint:scripts', 'prettier --write'],
-  '**/*.{md,yaml}': ['prettier --write'],
+  '**/*.{ts,js,tsx,mjs,cjs,json}': [
+    'pnpm lint',
+    'prettier --config prettier.config.mjs --write',
+  ],
+  '**/*.{md,yaml}': ['prettier --config prettier.config.mjs --write'],
 }

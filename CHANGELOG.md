@@ -13,6 +13,7 @@ not internal refactors.
 This section is intentionally empty.
 
 Changes will only appear here when they:
+
 - are user-visible,
 - change transformation semantics,
 - or affect documented guarantees.

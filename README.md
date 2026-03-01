@@ -194,6 +194,7 @@ Issues and pull requests are welcome:
 https://github.com/koppajs/koppajs-vite-plugin/issues
 
 Please keep contributions focused on:
+
 - correctness,
 - determinism,
 - and maintaining a minimal public surface.

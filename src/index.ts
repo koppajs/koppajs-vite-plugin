@@ -474,7 +474,11 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
 
     resolveId(source, importer) {
       // Only resolve relative .kpa imports — let Vite handle alias/bare imports
-      if (source.endsWith('.kpa') && importer && (source.startsWith('./') || source.startsWith('../'))) {
+      if (
+        source.endsWith('.kpa') &&
+        importer &&
+        (source.startsWith('./') || source.startsWith('../'))
+      ) {
         return normalizePath(path.resolve(path.dirname(importer), source))
       }
       return null
@@ -567,7 +571,9 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
         })
       }
 
-      return 'export default ' + transformKpaToModule(code, importerId, options, resolvedDeps)
+      return (
+        'export default ' + transformKpaToModule(code, importerId, options, resolvedDeps)
+      )
     },
   }
 }

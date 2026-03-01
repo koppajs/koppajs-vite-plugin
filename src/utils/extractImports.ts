@@ -78,7 +78,7 @@ export function extractImports(code: string, filePath: string): ExtractImportsRe
       // Side-effect import like `import "module"` - we skip these
       continue
     }
- 
+
     // Skip type-only imports completely - they don't need runtime deps
     // e.g., `import type { Foo } from "..."` has importClause.isTypeOnly = true
     if (importClause.isTypeOnly) {

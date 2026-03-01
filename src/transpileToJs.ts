@@ -25,14 +25,15 @@ function transpileToJs(tsCode: string, tsconfigPath?: string): JsTranspileResult
     })
 
     const tsConfig = JSON.parse(
-      configFileContent.replace(commentRegExp, (match: any) => {
-        if (match.startsWith("'") || match.startsWith('"') || match.startsWith('`')) {
-          return match
-        }
-        return ''
-      })
-      // Strip trailing commas that are valid in JSONC but not in JSON
-      .replace(/,\s*([}\]])/g, '$1'),
+      configFileContent
+        .replace(commentRegExp, (match: any) => {
+          if (match.startsWith("'") || match.startsWith('"') || match.startsWith('`')) {
+            return match
+          }
+          return ''
+        })
+        // Strip trailing commas that are valid in JSONC but not in JSON
+        .replace(/,\s*([}\]])/g, '$1'),
     )
 
     compilerOptions = tsConfig.compilerOptions ?? {}
