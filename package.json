@@ -1,0 +1,113 @@
+{
+  "name": "@koppajs/koppajs-vite-plugin",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.cjs.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.cjs.js"
+    }
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/koppajs/koppajs-vite-plugin"
+  },
+  "description": "KoppaJS Vite Plugin - Seamless Integration for KoppaJS Framework with Vite",
+  "keywords": [
+    "koppa",
+    "koppajs",
+    "koppa.js",
+    "frontend",
+    "framework",
+    "ui-framework",
+    "typescript",
+    "vite",
+    "reactivity",
+    "single-file-components",
+    "modular",
+    "lightweight",
+    "high-performance",
+    "web-development",
+    "javascript"
+  ],
+  "author": "Bastian Bensch",
+  "license": "Apache-2.0",
+  "homepage": "https://koppajs.org",
+  "scripts": {
+    "generate:types": "tsc --project tsconfig.types.json",
+    "clean": "rimraf node_modules dist pnpm-lock.yaml",
+    "typecheck": "tsc --project tsconfig.json",
+    "build": "pnpm run typecheck && vite build --config vite.config.ts && pnpm generate:types",
+    "rebuild": "pnpm run clean && pnpm run build",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:ci": "vitest --run --coverage",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs --fix",
+    "format": "prettier --config prettier.config.mjs --write .",
+    "list-structure": "git ls-files > ---project-structure",
+    "dump-code": "node scripts/dump-code.js",
+    "analyze-code": "node scripts/analyze-code.js",
+    "dump:ai": "node scripts/project-dump.mjs"
+  },
+  "packageManager": "pnpm@10.24.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10.24.0"
+  },
+  "peerDependencies": {
+    "vite": "^7.0.0",
+    "typescript": ">=5.5 <6"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@eslint/js": "^9.39.1",
+    "@types/jsdom": "^27.0.0",
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
+    "@vitest/coverage-v8": "^4.0.15",
+    "commitlint": "^20.1.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.3",
+    "rimraf": "^6.1.2",
+    "terser": "^5.44.1",
+    "typescript": "^5.7.2",
+    "vite": "^7.2.6",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.15",
+    "fflate": "^0.8.2"
+  },
+  "dependencies": {
+    "acorn": "^8.15.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "sass": "^1.82.0"
+  },
+  "overrides": {
+    "glob": "^11.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@parcel/watcher"
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+name: CI
+
+# CI runs on pull requests only.
+# Direct pushes to develop/main are discouraged; use PRs for code review.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Prettier (check)
+        run: pnpm prettier --check .
+
+      - name: Tests
+        run: pnpm test:ci
+
+      - name: Build
+        run: pnpm build
