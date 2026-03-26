@@ -1,3 +1,4 @@
+.ai/
 # Logs
 logs
 *.log
@@ -29,6 +30,9 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+.husky/_
 **/*_del
 ---*
 .local/
+*.tgz
+*.tsbuildinfo

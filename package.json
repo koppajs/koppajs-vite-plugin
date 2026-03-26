@@ -1,8 +1,8 @@
 {
   "name": "@koppajs/koppajs-vite-plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
-  "main": "./dist/index.cjs.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.es.js",
   "types": "./dist/index.d.ts",
   "files": [
@@ -16,7 +16,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.es.js",
-      "require": "./dist/index.cjs.js"
+      "require": "./dist/index.cjs"
     }
   },
   "sideEffects": false,
@@ -46,20 +46,23 @@
   "license": "Apache-2.0",
   "homepage": "https://koppajs.org",
   "scripts": {
+    "prepare": "husky",
     "generate:types": "tsc --project tsconfig.types.json",
-    "clean": "rimraf node_modules dist pnpm-lock.yaml",
+    "clean": "rimraf coverage dist",
     "typecheck": "tsc --project tsconfig.json",
-    "build": "pnpm run typecheck && vite build --config vite.config.ts && pnpm generate:types",
+    "build": "pnpm run typecheck && vite build --config vite.config.ts && pnpm run generate:types",
     "rebuild": "pnpm run clean && pnpm run build",
     "test": "vitest --run",
+    "test:run": "vitest --run",
     "test:watch": "vitest",
-    "test:coverage": "vitest --coverage",
-    "test:ci": "vitest --run --coverage",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs --fix",
+    "test:coverage": "vitest --run --coverage",
+    "test:ci": "pnpm run test:coverage",
+    "lint": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --ignore-pattern dist --ignore-pattern coverage --ignore-pattern .ai --ignore-pattern .local --max-warnings=0",
+    "lint:fix": "pnpm run lint -- --fix",
     "format": "prettier --config prettier.config.mjs --write .",
-    "list-structure": "git ls-files > ---project-structure",
-    "dump-code": "node scripts/dump-code.js",
-    "analyze-code": "node scripts/analyze-code.js",
+    "format:check": "prettier --config prettier.config.mjs --check .",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test:run",
+    "validate": "pnpm run format:check && pnpm run lint && pnpm run test:ci && pnpm run build",
     "dump:ai": "node scripts/project-dump.mjs"
   },
   "packageManager": "pnpm@10.24.0",
@@ -83,7 +86,6 @@
     "commitlint": "^20.1.0",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.7.3",

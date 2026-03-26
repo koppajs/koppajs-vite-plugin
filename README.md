@@ -28,9 +28,11 @@
   <p align="center">
     <a href="https://github.com/koppajs/koppajs-documentation">Documentation</a>
     &middot;
+    <a href="https://github.com/koppajs/create-koppajs">create-koppajs</a>
+    &middot;
     <a href="https://github.com/koppajs/koppajs-core">KoppaJS Core</a>
     &middot;
-    <a href="https://github.com/koppajs/koppajs-example">Example Project</a>
+    <a href="https://github.com/koppajs/koppajs-router">Router</a>
     &middot;
     <a href="https://github.com/koppajs/koppajs-vite-plugin/issues">Issues</a>
   </p>
@@ -110,6 +112,13 @@ export default defineConfig({
 ```
 
 No additional configuration is required for basic usage.
+
+For most users, the fastest way to start from a working KoppaJS + Vite setup is
+still the official scaffolder:
+
+```bash
+pnpm create koppajs my-app
+```
 
 ---
 

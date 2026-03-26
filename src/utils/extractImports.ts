@@ -171,15 +171,16 @@ export function generateDepsCode(deps: Map<string, ResolvedImportInfo>): string 
   const entries: string[] = []
 
   for (const [identifier, info] of deps) {
-    const importPath = info.resolvedPath
+    const importPath = JSON.stringify(info.resolvedPath)
 
     if (info.exportName === '*') {
       // Namespace import: return the whole module
-      entries.push(`${identifier}: () => import('${importPath}')`)
+      entries.push(`${identifier}: () => import(${importPath})`)
     } else {
       // Named or default import: return specific export
+      const exportName = JSON.stringify(info.exportName)
       entries.push(
-        `${identifier}: () => import('${importPath}').then(m => m['${info.exportName}'])`,
+        `${identifier}: () => import(${importPath}).then((m) => m[${exportName}])`,
       )
     }
   }

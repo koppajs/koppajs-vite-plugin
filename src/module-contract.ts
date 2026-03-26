@@ -1,6 +1,12 @@
 // Defines the fixed shape for the module object emitted by the Vite plugin
 
+export const MODULE_CONTRACT_VERSION = 1
+
 export interface KoppaModule {
+  /** Version of the emitted contract */
+  contractVersion: number
+  /** Normalized source path for the component */
+  path: string
   /** HTML template string */
   template: string
   /** CSS string */
@@ -18,6 +24,10 @@ export interface KoppaModule {
   structAttr: string
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 /**
  * Validates that deps is either null or a plain object with all function values.
  */
@@ -27,11 +37,11 @@ function isValidDeps(
   if (deps === null) {
     return true
   }
-  if (typeof deps !== 'object' || Array.isArray(deps)) {
+  if (!isRecord(deps)) {
     return false
   }
   // Check that all values are functions
-  for (const value of Object.values(deps as Record<string, unknown>)) {
+  for (const value of Object.values(deps)) {
     if (typeof value !== 'function') {
       return false
     }
@@ -39,13 +49,19 @@ function isValidDeps(
   return true
 }
 
-export function validateKoppaModule(obj: any): obj is KoppaModule {
+export function validateKoppaModule(obj: unknown): obj is KoppaModule {
+  if (!isRecord(obj)) {
+    return false
+  }
+
   return (
-    obj &&
+    obj.contractVersion === MODULE_CONTRACT_VERSION &&
+    typeof obj.path === 'string' &&
     typeof obj.template === 'string' &&
     typeof obj.style === 'string' &&
     typeof obj.script === 'string' &&
-    (typeof obj.scriptMap === 'object' || obj.scriptMap === null) &&
+    ((isRecord(obj.scriptMap) && !Array.isArray(obj.scriptMap)) ||
+      obj.scriptMap === null) &&
     isValidDeps(obj.deps) &&
     typeof obj.structAttr === 'string'
   )

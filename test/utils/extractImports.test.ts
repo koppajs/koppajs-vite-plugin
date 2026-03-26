@@ -231,7 +231,7 @@ describe('generateDepsCode', () => {
     ])
 
     const result = generateDepsCode(deps)
-    expect(result).toContain("foo: () => import('some-module').then(m => m['foo'])")
+    expect(result).toContain('foo: () => import("some-module").then((m) => m["foo"])')
   })
 
   it('generates correct code for default imports', () => {
@@ -249,7 +249,7 @@ describe('generateDepsCode', () => {
 
     const result = generateDepsCode(deps)
     expect(result).toContain(
-      "Default: () => import('some-module').then(m => m['default'])",
+      'Default: () => import("some-module").then((m) => m["default"])',
     )
   })
 
@@ -267,7 +267,7 @@ describe('generateDepsCode', () => {
     ])
 
     const result = generateDepsCode(deps)
-    expect(result).toContain("Utils: () => import('utils-module')")
+    expect(result).toContain('Utils: () => import("utils-module")')
     expect(result).not.toContain('.then')
   })
 
@@ -294,8 +294,8 @@ describe('generateDepsCode', () => {
     ])
 
     const result = generateDepsCode(deps)
-    expect(result).toContain("foo: () => import('module-a').then(m => m['foo'])")
-    expect(result).toContain("bar: () => import('module-b').then(m => m['bar'])")
+    expect(result).toContain('foo: () => import("module-a").then((m) => m["foo"])')
+    expect(result).toContain('bar: () => import("module-b").then((m) => m["bar"])')
     expect(result.startsWith('{')).toBe(true)
     expect(result.endsWith('}')).toBe(true)
   })
@@ -315,8 +315,26 @@ describe('generateDepsCode', () => {
 
     const result = generateDepsCode(deps)
     expect(result).toContain(
-      "aliasName: () => import('module').then(m => m['originalName'])",
+      'aliasName: () => import("module").then((m) => m["originalName"])',
     )
+  })
+
+  it('serializes import paths and export names safely', () => {
+    const deps = new Map<string, ResolvedImportInfo>([
+      [
+        'quoted',
+        {
+          localName: 'quoted',
+          exportName: "it's-complicated",
+          source: "./module's-path",
+          resolvedPath: "./module's-path",
+        },
+      ],
+    ])
+
+    const result = generateDepsCode(deps)
+    expect(result).toContain(`quoted: () => import("./module's-path")`)
+    expect(result).toContain(`m["it's-complicated"]`)
   })
 })
 
@@ -340,7 +358,7 @@ describe('generateDepsCode - resolved import paths', () => {
 
     const result = generateDepsCode(deps)
     expect(result).toContain(
-      "DOC_NAV: () => import('/src/demos/docs/nav').then(m => m['DOC_NAV'])",
+      'DOC_NAV: () => import("/src/demos/docs/nav").then((m) => m["DOC_NAV"])',
     )
   })
 
@@ -359,7 +377,7 @@ describe('generateDepsCode - resolved import paths', () => {
 
     const result = generateDepsCode(deps)
     expect(result).toContain(
-      "helper: () => import('/src/components/utils').then(m => m['helper'])",
+      'helper: () => import("/src/components/utils").then((m) => m["helper"])',
     )
   })
 
@@ -378,7 +396,7 @@ describe('generateDepsCode - resolved import paths', () => {
 
     const result = generateDepsCode(deps)
     expect(result).toContain(
-      "shared: () => import('/src/shared/index').then(m => m['default'])",
+      'shared: () => import("/src/shared/index").then((m) => m["default"])',
     )
   })
 
@@ -396,7 +414,7 @@ describe('generateDepsCode - resolved import paths', () => {
     ])
 
     const result = generateDepsCode(deps)
-    expect(result).toContain("lodash: () => import('lodash').then(m => m['default'])")
+    expect(result).toContain('lodash: () => import("lodash").then((m) => m["default"])')
   })
 
   it('uses root-relative imports unchanged', () => {
@@ -413,7 +431,9 @@ describe('generateDepsCode - resolved import paths', () => {
     ])
 
     const result = generateDepsCode(deps)
-    expect(result).toContain("config: () => import('/src/config').then(m => m['config'])")
+    expect(result).toContain(
+      'config: () => import("/src/config").then((m) => m["config"])',
+    )
   })
 
   it('uses scoped package imports unchanged', () => {
@@ -430,7 +450,7 @@ describe('generateDepsCode - resolved import paths', () => {
     ])
 
     const result = generateDepsCode(deps)
-    expect(result).toContain("koppa: () => import('@koppajs/core')")
+    expect(result).toContain('koppa: () => import("@koppajs/core")')
   })
 
   it('uses Vite alias resolved paths', () => {
@@ -448,7 +468,7 @@ describe('generateDepsCode - resolved import paths', () => {
     ])
 
     const result = generateDepsCode(deps)
-    expect(result).toContain("Nav: () => import('/src/docs/nav').then(m => m['Nav'])")
+    expect(result).toContain('Nav: () => import("/src/docs/nav").then((m) => m["Nav"])')
   })
 
   it('preserves virtual module paths', () => {
@@ -467,7 +487,7 @@ describe('generateDepsCode - resolved import paths', () => {
 
     const result = generateDepsCode(deps)
     expect(result).toContain(
-      "virtual: () => import('virtual:my-module').then(m => m['default'])",
+      'virtual: () => import("virtual:my-module").then((m) => m["default"])',
     )
   })
 })

@@ -60,6 +60,8 @@ Install dependencies:
 pnpm install
 ```
 
+This also installs the repository's Git hooks via Husky.
+
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
 ---
@@ -109,7 +111,7 @@ All KoppaJS projects enforce consistency through:
 Check code quality:
 
 ```bash
-pnpm lint
+pnpm check
 ```
 
 Format code:
@@ -184,6 +186,7 @@ Each repository defines its own scripts, but commonly available commands include
 | Command       | Description            |
 | ------------- | ---------------------- |
 | `pnpm build`  | Build the project      |
+| `pnpm check`  | Run local quality gate |
 | `pnpm test`   | Run tests              |
 | `pnpm lint`   | Run lint checks        |
 | `pnpm format` | Format code            |
@@ -209,6 +212,26 @@ General flow:
 CI will validate the release and publish artifacts where applicable.
 
 Exact release behavior may vary by repository.
+
+<p align="right">(<a href="#contributing-top">back to top</a>)</p>
+
+---
+
+## Repository-Specific Governance
+
+This repository also maintains a project-specific meta layer for architecture,
+decision records, testing expectations, and AI-assisted development.
+
+Before non-trivial changes, read:
+
+1. [DECISION_HIERARCHY.md](DECISION_HIERARCHY.md)
+2. [ARCHITECTURE.md](ARCHITECTURE.md)
+3. Relevant specs in `docs/specs/`
+4. [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md)
+5. [TESTING_STRATEGY.md](TESTING_STRATEGY.md)
+
+If you change architecture, public behavior, workflow rules, or test strategy,
+update the corresponding meta-layer document in the same change.
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
