@@ -14,6 +14,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { transformKpaToModule } from '../src/index'
+import { MODULE_CONTRACT_VERSION } from '../src/module-contract'
 import { STRUCT_ATTR } from '../src/utils/identityConstants'
 
 /* -------------------------------------------------------------------------- */
@@ -70,6 +71,15 @@ function validateFullRuntimeContract(obj: Record<string, unknown>): {
   errors: string[]
 } {
   const errors: string[] = []
+
+  if (obj.contractVersion !== MODULE_CONTRACT_VERSION) {
+    errors.push(
+      `contractVersion: expected ${MODULE_CONTRACT_VERSION}, got ${JSON.stringify(obj.contractVersion)}`,
+    )
+  }
+  if (typeof obj.path !== 'string') {
+    errors.push(`path: expected string, got ${typeof obj.path}`)
+  }
 
   // Required fields (strings)
   if (typeof obj.template !== 'string') {
@@ -150,6 +160,8 @@ describe('Core Integration Contract: Plugin output ↔ Core ComponentSource', ()
     it('has template, script, style as strings', () => {
       const output = transformKpaToModule(minimalKpa, id, pluginOptions, resolvedDeps)
       const obj = extractModuleObject(output) as Record<string, unknown>
+      expect(obj.contractVersion).toBe(MODULE_CONTRACT_VERSION)
+      expect(obj.path).toBe(id)
       expect(typeof obj.template).toBe('string')
       expect(typeof obj.script).toBe('string')
       expect(typeof obj.style).toBe('string')
@@ -179,6 +191,18 @@ describe('Core Integration Contract: Plugin output ↔ Core ComponentSource', ()
       const obj = extractModuleObject(output) as Record<string, unknown>
       expect(obj.scriptMap === null || typeof obj.scriptMap === 'object').toBe(true)
       expect(typeof obj.scriptMap).not.toBe('string')
+    })
+
+    it('normalizes the emitted source path', () => {
+      const windowsId = 'C:\\repo\\src\\minimal.kpa'
+      const output = transformKpaToModule(
+        minimalKpa,
+        windowsId,
+        pluginOptions,
+        resolvedDeps,
+      )
+      const obj = extractModuleObject(output) as Record<string, unknown>
+      expect(obj.path).toBe('C:/repo/src/minimal.kpa')
     })
   })
 

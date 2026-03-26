@@ -20,6 +20,30 @@ Changes will only appear here when they:
 
 ---
 
+## [1.0.1] — Module Contract Hardening
+
+**2026-03-26**
+
+Patch release to harden the emitted module contract, align package metadata,
+and refresh repository quality workflow. No intentional breaking API changes.
+
+### Added
+
+- Added explicit emitted-module `contractVersion` and normalized `path`
+  metadata
+- Added repository meta-layer documents and stronger package-contract coverage
+
+### Changed
+
+- Hardened `validateKoppaModule(...)` and dependency import-code generation
+- Aligned package entrypoint metadata and package-validation expectations
+- Simplified lint, format, test, and CI workflow scripts around the current
+  baseline
+- Updated README ecosystem links to point at the released starter/tooling
+  surface
+
+---
+
 ## [1.0.0] — Baseline Plugin Release
 
 **2026-03-01**

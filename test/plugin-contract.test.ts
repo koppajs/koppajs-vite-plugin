@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { transformKpaToModule } from '../src/index'
+import { MODULE_CONTRACT_VERSION } from '../src/module-contract'
 
 const options = {}
 const resolvedDeps = new Map()
@@ -18,16 +19,20 @@ describe('Vite plugin output contract with KoppaJS core', () => {
     const id = '/test/file.kpa'
     const output = transformKpaToModule(code, id, options, resolvedDeps)
     const obj = parseOutputObject(output)
+    expect(obj.contractVersion).toBe(MODULE_CONTRACT_VERSION)
+    expect(obj.path).toBe(id)
     expect(typeof obj.template).toBe('string')
     expect(typeof obj.script).toBe('string')
     expect(typeof obj.style).toBe('string')
   })
 
-  it('omits optional fields if not present', () => {
+  it('keeps optional fields nullable while preserving required metadata', () => {
     const code = '[template]<div></div>[/template][js]{}[/js][css].a{}[/css]'
     const id = '/test/file.kpa'
     const output = transformKpaToModule(code, id, options, resolvedDeps)
     const obj = parseOutputObject(output)
+    expect(obj.contractVersion).toBe(MODULE_CONTRACT_VERSION)
+    expect(obj.path).toBe(id)
     expect(obj.scriptMap === undefined || obj.scriptMap === null).toBe(true)
     // deps should be null (no imports) or an object of functions (with imports)
     expect(
@@ -41,7 +46,7 @@ describe('Vite plugin output contract with KoppaJS core', () => {
   })
 
   it('fails gracefully if required fields are missing', () => {
-    // Simulate a broken plugin output (missing script)
+    // Simulate a broken plugin output (missing script and contract metadata)
     const brokenOutput = '{ template: "<div></div>", style: ".a{}" }'
     // Should not pass the isComponentSource type guard
     const isComponentSource = (ext: any) =>

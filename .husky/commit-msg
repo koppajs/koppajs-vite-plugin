@@ -1,31 +1,15 @@
-#!/usr/bin/env bash
-# Simple commit message validation using commitlint
+#!/usr/bin/env sh
+set -e
 
-echo "🚀 Running commit message validation..."
-
-# pnpm must be installed
 if ! command -v pnpm >/dev/null 2>&1; then
-  echo "❌ Error: pnpm is not installed!" >&2
+  echo "pnpm is required to validate commit messages." >&2
   exit 1
 fi
 
-COMMIT_MSG_FILE="$1"
-COMMIT_MSG_CONTENT=$(cat "$COMMIT_MSG_FILE")
+case "$(cat "$1")" in
+  Merge*|Revert*|fixup\!*|squash\!*)
+    exit 0
+    ;;
+esac
 
-# Optional: Skip system commits (Merge, Revert, fixup, squash)
-if echo "$COMMIT_MSG_CONTENT" | grep -qE "^(Merge|Revert|fixup!|squash!)"; then
-  echo "ℹ️ Detected system commit. Skipping commitlint."
-  exit 0
-fi
-
-# Run commitlint via pnpm exec
-pnpm exec commitlint --config commitlint.config.mjs --edit "$COMMIT_MSG_FILE"
-STATUS=$?
-
-if [ $STATUS -ne 0 ]; then
-  echo "❌ Commit message validation failed (commitlint)."
-  exit 1
-fi
-
-echo "✅ Commit message is valid!"
-exit 0
+pnpm exec commitlint --config commitlint.config.mjs --edit "$1"

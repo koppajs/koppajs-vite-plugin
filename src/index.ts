@@ -13,6 +13,7 @@ import {
   type ImportInfo,
   type ResolvedImportInfo,
 } from './utils/extractImports.js'
+import { MODULE_CONTRACT_VERSION } from './module-contract.js'
 import { normalizeStructSeed } from './utils/structId.js'
 import { injectStructIdsIntoTemplate } from './utils/injectStructIds.js'
 import { STRUCT_ATTR } from './utils/identityConstants.js'
@@ -399,6 +400,7 @@ export function transformKpaToModule(
   options: PluginOptions,
   resolvedDeps: Map<string, ResolvedImportInfo>,
 ): string {
+  const normalizedId = normalizePath(id)
   const parsed = parseKpaSource(code)
 
   let template = parsed.template ?? ''
@@ -416,6 +418,7 @@ export function transformKpaToModule(
   // Use JSON.stringify to safely serialize all string content.
   // This prevents backticks, ${}, and other special characters from breaking
   // the generated ES module output.
+  const pathStr = JSON.stringify(normalizedId)
   const templateStr = JSON.stringify(template)
   const styleStr = JSON.stringify(style)
   const scriptStr = JSON.stringify('(() => { ' + scriptBody + ' })()')
@@ -426,6 +429,12 @@ export function transformKpaToModule(
 
   return (
     '{\n' +
+    '    contractVersion: ' +
+    MODULE_CONTRACT_VERSION +
+    ',\n' +
+    '    path: ' +
+    pathStr +
+    ',\n' +
     '    template: ' +
     templateStr +
     ',\n' +

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { transformKpaToModule } from '../src/index'
-import { validateKoppaModule } from '../src/module-contract'
+import { MODULE_CONTRACT_VERSION, validateKoppaModule } from '../src/module-contract'
 import { STRUCT_ATTR } from '../src/utils/identityConstants'
 
 const options = {}
@@ -26,6 +26,8 @@ describe('KoppaModule contract enforcement', () => {
   it('fails validation if shape changes', () => {
     // Remove a required field
     const broken = {
+      contractVersion: MODULE_CONTRACT_VERSION,
+      path: '/test/file.kpa',
       template: '<div></div>',
       style: '.a{}',
       // script missing
@@ -35,10 +37,27 @@ describe('KoppaModule contract enforcement', () => {
     }
     expect(validateKoppaModule(broken)).toBe(false)
   })
+
+  it('fails validation if contract metadata drifts', () => {
+    const broken = {
+      contractVersion: MODULE_CONTRACT_VERSION + 1,
+      path: '/test/file.kpa',
+      template: '<div></div>',
+      style: '.a{}',
+      script: '(() => { return { state: {} } })()',
+      scriptMap: null,
+      deps: null,
+      structAttr: STRUCT_ATTR,
+    }
+
+    expect(validateKoppaModule(broken)).toBe(false)
+  })
 })
 
 describe('KoppaModule deps field validation', () => {
   const baseModule = {
+    contractVersion: MODULE_CONTRACT_VERSION,
+    path: '/test/file.kpa',
     template: '<div></div>',
     style: '.a{}',
     script: '(() => { return { state: {} } })()',

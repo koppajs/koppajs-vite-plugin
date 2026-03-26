@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { zipSync, strToU8 } from 'fflate'
+import { zipSync } from 'fflate'
 
 const execFileAsync = promisify(execFile)
 

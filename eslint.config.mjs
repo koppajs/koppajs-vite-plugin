@@ -1,22 +1,23 @@
 import js from '@eslint/js'
+import eslintConfigPrettier from 'eslint-config-prettier'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
-import prettierPlugin from 'eslint-plugin-prettier'
 
 /** Globale Ignore-Liste (ersetzt .eslintignore) */
 const ignores = [
+  '.ai/**',
   '.git',
   '.history/**',
   '.vscode/**',
   '.idea/**',
+  '.local/**',
   'node_modules/**',
+  'dist',
   'dist/**',
+  'coverage',
   'coverage/**',
   'pnpm-lock.yaml',
   'package-lock.json',
-  'vitest.config.*',
-  'jest.config.*',
-  'vite.config.*',
   '**/*_del',
   '---*',
 ]
@@ -32,6 +33,9 @@ export default [
   // 1) Ignore-Konfiguration
   {
     ignores,
+    linterOptions: {
+      reportUnusedDisableDirectives: 'error',
+    },
   },
 
   // 2) TS/JS-Regeln
@@ -40,7 +44,6 @@ export default [
     languageOptions,
     plugins: {
       '@typescript-eslint': tsPlugin,
-      prettier: prettierPlugin,
     },
     rules: {
       // Basis: ESLint-Empfehlungen
@@ -59,21 +62,9 @@ export default [
 
       // optional: etwas weniger streng, wenn du viel refaktorierst
       '@typescript-eslint/no-explicit-any': 'off',
-
-      // Prettier als Format-Richter
-      'prettier/prettier': [
-        'error',
-        {
-          semi: false,
-          singleQuote: true,
-          trailingComma: 'all',
-          printWidth: 90,
-          tabWidth: 2,
-          endOfLine: 'lf',
-          arrowParens: 'always',
-          bracketSpacing: true,
-        },
-      ],
     },
   },
+
+  // Prettier bleibt der alleinige Formatter.
+  eslintConfigPrettier,
 ]

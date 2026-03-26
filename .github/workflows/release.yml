@@ -41,12 +41,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Quality Gate
-        run: |
-          pnpm typecheck
-          pnpm lint
-          pnpm prettier --check .
-          pnpm test:ci
-          pnpm build
+        run: pnpm run validate
 
       - name: Verify tag matches package.json
         run: |

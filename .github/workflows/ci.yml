@@ -1,7 +1,5 @@
 name: CI
 
-# CI runs on pull requests only.
-# Direct pushes to develop/main are discouraged; use PRs for code review.
 on:
   push:
     branches: [main]
@@ -28,17 +26,5 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Prettier (check)
-        run: pnpm prettier --check .
-
-      - name: Tests
-        run: pnpm test:ci
-
-      - name: Build
-        run: pnpm build
+      - name: Validate
+        run: pnpm run validate
