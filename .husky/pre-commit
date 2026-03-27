@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
-set -e
+set -eu
 
 if ! command -v pnpm >/dev/null 2>&1; then
   echo "pnpm is required to run pre-commit checks." >&2
   exit 1
 fi
 
+pnpm run check:docs
 pnpm exec lint-staged

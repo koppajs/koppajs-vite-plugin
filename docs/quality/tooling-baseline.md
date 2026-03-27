@@ -10,12 +10,14 @@ Storybook, or interactive demo surface inside the repo.
 - ESLint checks source, tests, scripts, and config files for correctness.
 - Prettier owns formatting and is kept separate from linting.
 - Vitest covers unit, contract, integration, and packaging metadata behavior.
-- Husky and lint-staged run fast staged-file checks before commit.
+- A local documentation-contract validator keeps governed root docs in sync.
+- Husky and lint-staged run fast pre-commit checks before commit.
 - Commitlint enforces conventional commit messages.
 - GitHub Actions runs the repository validation and release gates.
 
 ## Script contract
 
+- `pnpm check:docs`: validate governed root docs and the local documentation contract.
 - `pnpm format`: apply Prettier to tracked project files.
 - `pnpm format:check`: verify formatting without changes.
 - `pnpm lint`: run ESLint as a failing quality gate.
@@ -24,13 +26,13 @@ Storybook, or interactive demo surface inside the repo.
 - `pnpm test`: run the test suite once.
 - `pnpm test:watch`: run Vitest in watch mode.
 - `pnpm test:coverage`: run tests with coverage reporting.
-- `pnpm check`: local quality gate for formatting, linting, type-checking, and tests.
-- `pnpm validate`: CI/release gate for formatting, linting, coverage, and build output.
+- `pnpm check`: local quality gate for docs, formatting, linting, type-checking, and tests.
+- `pnpm validate`: CI/release gate for docs, formatting, linting, coverage, and build output.
 - `pnpm build`: type-check, bundle, and emit public declarations.
 
 ## Hook policy
 
-- `pre-commit`: run staged ESLint and Prettier only. Keep it fast.
+- `pre-commit`: run `pnpm run check:docs`, then staged ESLint and Prettier via `lint-staged`.
 - `commit-msg`: validate conventional commits.
 - No `pre-push` hook by default. Full-repo checks belong in `pnpm check`,
   `pnpm validate`, or CI.
