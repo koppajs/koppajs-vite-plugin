@@ -63,6 +63,8 @@ previewable UI surface such as a demo app, Storybook, or interactive docs.
 - Minimum gate for code changes: `pnpm check`.
 - Additional gate for contract, build, dependency, or publish metadata changes:
   `pnpm validate`.
+- Hosted CI runs `pnpm validate` on Node.js 22 and 24; release automation
+  reruns the same gate on the maintainer default from `.nvmrc` before publish.
 - Every bug fix requires a regression test unless the behavior is impossible to
   exercise with the current architecture; if so, document the gap in the change.
 

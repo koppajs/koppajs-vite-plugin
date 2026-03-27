@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import packageJson from '../package.json' with { type: 'json' }
 import viteConfig from '../vite.config'
@@ -51,5 +52,12 @@ describe('package metadata contract', () => {
   it('keeps clean focused on generated artifacts instead of dependency state', () => {
     expect(packageJson.scripts?.clean).not.toContain('node_modules')
     expect(packageJson.scripts?.clean).not.toContain('pnpm-lock.yaml')
+  })
+
+  it('declares Node.js >=22 while keeping Node 22 as the maintainer default', () => {
+    const nvmrc = readFileSync(new URL('../.nvmrc', import.meta.url), 'utf8').trim()
+
+    expect(packageJson.engines?.node).toBe('>=22')
+    expect(nvmrc).toBe('22')
   })
 })

@@ -1,27 +1,48 @@
 # Decision Hierarchy
 
-When repository documents conflict, use this order of precedence.
+## Purpose
 
-1. Accepted feature or behavior specs in `docs/specs/`
+This document defines which repository documents are authoritative when
+guidance conflicts. Lower-precedence documents must be updated to match
+higher-precedence ones.
+
+## Precedence Order
+
+1. Approved specs in `docs/specs/`
 2. Accepted ADRs in `docs/adr/`
-3. [ARCHITECTURE.md](ARCHITECTURE.md) and `docs/architecture/`
-4. [TESTING_STRATEGY.md](TESTING_STRATEGY.md) for verification obligations
-5. [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md)
-6. [AI_CONSTITUTION.md](AI_CONSTITUTION.md) and `.github/instructions/`
-7. [CONTRIBUTING.md](CONTRIBUTING.md) and `docs/quality/`
-8. [README.md](README.md), [CHANGELOG.md](CHANGELOG.md), and inline examples
+3. `ARCHITECTURE.md` and supporting files in `docs/architecture/`
+4. `AI_CONSTITUTION.md` and `.github/instructions/`
+5. `DEVELOPMENT_RULES.md`
+6. `TESTING_STRATEGY.md` and `docs/quality/`
+7. Repository map and supporting governance notes in `docs/meta/`
+8. Contributor workflow docs such as `CONTRIBUTING.md` and `RELEASE.md`
+9. Informational docs such as `README.md`, `CHANGELOG.md`, and inline examples
+10. Generated artifacts such as `.ai/`, `dist/`, and `coverage/`
 
-## How to apply the hierarchy
+## How To Resolve Conflicts
 
-- Higher-ranked documents define intent.
-- Lower-ranked documents may explain or exemplify intent, but they may not
-  silently override it.
-- If code behavior conflicts with a higher-ranked document, treat it as drift or
-  a bug until the higher-ranked document is explicitly updated.
-- If two documents at the same level conflict, update both in one change and add
-  an ADR if the disagreement reflects a real design decision.
+- Follow the highest-precedence applicable document.
+- Update every lower-precedence document touched by the conflict in the same
+  change when feasible.
+- If a higher-precedence document is missing for a material behavior,
+  packaging, or workflow change, create it before finishing the change.
+- If implementation differs from the highest-precedence document, do not
+  silently pick one. Reconcile the gap with a spec, ADR, or explicit follow-up.
 
-## Special rule for public contracts
+## Tests In The Hierarchy
+
+Tests are executable evidence, not top-level governance. They should reflect
+approved specs and accepted architecture.
+
+When tests conflict with higher-precedence documents:
+
+- update the tests if the documented intent is correct
+- update the governing document first if the implementation is the new intended
+  behavior
+
+Never use stale tests as justification for undocumented architecture drift.
+
+## Public Compatibility Rule
 
 The emitted `KoppaModule` contract and anything exported from `src/index.ts`
 must never be changed based only on examples or local convenience. Contract

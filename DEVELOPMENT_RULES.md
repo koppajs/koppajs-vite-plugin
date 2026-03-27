@@ -53,6 +53,9 @@ this repository.
   APIs unless the boundary is explicitly redefined in architecture docs.
 - New parser or compiler dependencies must justify why existing `typescript`,
   `sass`, `postcss`, `autoprefixer`, and `acorn` primitives are insufficient.
+- Build or release tooling changes must be reflected in
+  `docs/quality/tooling-baseline.md` and, if contributor-facing,
+  `CONTRIBUTING.md` or `RELEASE.md`.
 
 ## Forbidden patterns
 
@@ -71,6 +74,8 @@ this repository.
 - Architectural decision: add an ADR in `docs/adr/`.
 - New contributor workflow or tool: update `CONTRIBUTING.md`.
 - New or changed test expectations: update `TESTING_STRATEGY.md`.
+- Release, publish, or versioning workflow change: update `RELEASE.md`,
+  `.github/workflows/`, and `docs/quality/tooling-baseline.md`.
 - When documents conflict, follow [DECISION_HIERARCHY.md](DECISION_HIERARCHY.md).
 
 ## Style rules
