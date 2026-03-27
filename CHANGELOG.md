@@ -16,6 +16,28 @@ This section is intentionally empty.
 
 ---
 
+## [1.0.4] — Repository Baseline Cleanup and Engine Enforcement
+
+**2026-03-27**
+
+Patch release to publish the full local repository baseline after the 1.0.3
+workflow, including the tracked engine policy and repository housekeeping
+changes. No intentional public API or emitted-module contract changes.
+
+### Added
+
+- Added a tracked `.npmrc` with `engine-strict=true` so the repository enforces
+  its documented Node.js and pnpm requirements locally
+
+### Changed
+
+- Removed tracked editor-specific `.vscode/` defaults from the repository
+  baseline
+- Removed the obsolete local AI helper script `scripts/project-dump.mjs` from
+  the tracked repository surface
+
+---
+
 ## [1.0.3] — Node Baseline and Release Governance Alignment
 
 **2026-03-27**
