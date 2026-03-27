@@ -1,10 +1,12 @@
 # Change Log
 
-All notable changes to **koppajs-vite-plugin** are documented in this file.
+All notable changes to **@koppajs/koppajs-vite-plugin** are documented in this file.
 
-This project follows a **deliberately minimal, stability-first approach**.
-The changelog records **intentional milestones and guarantees**,
-not internal refactors.
+This project uses a **manual, tag-driven release process**.
+Only tagged versions represent official releases.
+
+This changelog documents **intentional milestones and guarantees**,
+not every internal refactor.
 
 ---
 
@@ -17,6 +19,30 @@ Changes will only appear here when they:
 - are user-visible,
 - change transformation semantics,
 - or affect documented guarantees.
+
+---
+
+## [1.0.2] — Documentation Contract and Release Workflow Refresh
+
+**2026-03-27**
+
+Patch release to formalize the governed repository-document contract, wire it
+into local quality gates, and refresh hosted release automation. No intentional
+public API or emitted-module contract changes.
+
+### Added
+
+- Added a dedicated repository-documentation contract spec and local
+  `check:docs` validator
+
+### Changed
+
+- Wired documentation-contract validation into `check`, `validate`, and the
+  local `pre-commit` hook
+- Refined README, CONTRIBUTING, and spec guidance around governed root-document
+  structure and contributor expectations
+- Updated GitHub Actions runtime steps and made GitHub Release creation
+  idempotent in the release workflow
 
 ---
 

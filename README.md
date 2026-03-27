@@ -47,12 +47,12 @@
     <li><a href="#features">Features</a></li>
     <li><a href="#installation">Installation</a></li>
     <li><a href="#requirements">Requirements</a></li>
-    <li><a href="#usage--behavior">Usage & Behavior</a></li>
+    <li><a href="#usage-behavior">Usage & Behavior</a></li>
     <li><a href="#how-it-works">How it works</a></li>
-    <li><a href="#debugging--sourcemaps-dynamic-code">Debugging & Sourcemaps (Dynamic Code)</a></li>
-    <li><a href="#plugin--core-contract">Plugin -> Core Contract</a></li>
-    <li><a href="#architecture--governance">Architecture & Governance</a></li>
-    <li><a href="#community--contribution">Community & Contribution</a></li>
+    <li><a href="#debugging-sourcemaps-dynamic-code">Debugging & Sourcemaps (Dynamic Code)</a></li>
+    <li><a href="#plugin---core-contract">Plugin -> Core Contract</a></li>
+    <li><a href="#architecture-governance">Architecture & Governance</a></li>
+    <li><a href="#community-contribution">Community & Contribution</a></li>
     <li><a href="#license">License</a></li>
   </ol>
 </details>
@@ -228,7 +228,7 @@ For deeper semantics, use the package docs:
 
 ## Architecture & Governance
 
-Project intent and package constraints live in dedicated meta-layer documents:
+Project intent, contributor rules, and documentation contracts live in the local repo meta layer:
 
 - [AI_CONSTITUTION.md](./AI_CONSTITUTION.md)
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
@@ -236,9 +236,20 @@ Project intent and package constraints live in dedicated meta-layer documents:
 - [DEVELOPMENT_RULES.md](./DEVELOPMENT_RULES.md)
 - [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
 - [ROADMAP.md](./ROADMAP.md)
-- [docs/quality/tooling-baseline.md](./docs/quality/tooling-baseline.md)
-- [docs/specs/kpa-module-transformation.md](./docs/specs/kpa-module-transformation.md)
-- [docs/adr/](./docs/adr/)
+- [CHANGELOG.md](./CHANGELOG.md)
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
+- [docs/specs/README.md](./docs/specs/README.md)
+- [docs/specs/repository-documentation-contract.md](./docs/specs/repository-documentation-contract.md)
+- [docs/meta/README.md](./docs/meta/README.md)
+
+The file-shape contract for `README.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, and `CONTRIBUTING.md` is defined in [docs/specs/repository-documentation-contract.md](./docs/specs/repository-documentation-contract.md).
+
+Run the local document guard before committing:
+
+```bash
+pnpm run check:docs
+```
 
 ---
 
@@ -249,6 +260,8 @@ Issues and pull requests are welcome:
 https://github.com/koppajs/koppajs-vite-plugin/issues
 
 Contributor workflow details live in [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+Community expectations live in [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
 ---
 

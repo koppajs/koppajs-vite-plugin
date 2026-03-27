@@ -1,6 +1,6 @@
 {
   "name": "@koppajs/koppajs-vite-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.es.js",
@@ -61,9 +61,10 @@
     "lint:fix": "pnpm run lint -- --fix",
     "format": "prettier --config prettier.config.mjs --write .",
     "format:check": "prettier --config prettier.config.mjs --check .",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test:run",
-    "validate": "pnpm run format:check && pnpm run lint && pnpm run test:ci && pnpm run build",
-    "dump:ai": "node scripts/project-dump.mjs"
+    "check": "pnpm run check:docs && pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test:run",
+    "validate": "pnpm run check:docs && pnpm run format:check && pnpm run lint && pnpm run test:ci && pnpm run build",
+    "dump:ai": "node scripts/project-dump.mjs",
+    "check:docs": "node scripts/check-doc-contract.mjs"
   },
   "packageManager": "pnpm@10.24.0",
   "engines": {
@@ -111,5 +112,6 @@
       "esbuild",
       "@parcel/watcher"
     ]
-  }
+  },
+  "private": false
 }
