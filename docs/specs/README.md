@@ -1,22 +1,27 @@
 # Specifications
 
-Specs define intended behavior before or alongside implementation work. They are
-the highest-level behavior documents in this repository.
+Specs define intended behavior before or alongside implementation work.
+They are the highest-precedence behavioral documents in this repository once approved.
 
-## When to add or update a spec
+## When To Add Or Update A Spec
 
 - A public behavior changes
-- A new plugin option is introduced
-- The emitted contract gains or changes semantics
-- A subsystem with externally visible behavior is added
+- A contributor-facing workflow changes
+- A governed root document changes shape
+- A new subsystem takes on externally visible behavior
 
-## Required sections
+## Required Sections
 
+- scope
 - behavior
-- inputs
-- outputs
 - constraints
 - edge cases
-- acceptance criteria
+- validation or acceptance criteria
 
-Use [SPEC_TEMPLATE.md](SPEC_TEMPLATE.md) for new specs.
+Use the local spec template when one exists.
+
+## Current Specs
+
+- `SPEC_TEMPLATE.md`
+- `kpa-module-transformation.md`
+- `repository-documentation-contract.md`

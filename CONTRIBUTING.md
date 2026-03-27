@@ -1,13 +1,11 @@
 <a id="contributing-top"></a>
 
-<!-- PROJECT LOGO -->
 <div align="center">
   <img src="https://public-assets-1b57ca06-687a-4142-a525-0635f7649a5c.s3.eu-central-1.amazonaws.com/koppajs/koppajs-logo-text-900x226.png" width="500" alt="KoppaJS Logo">
 </div>
 
 <br>
 
-<!-- TITLE -->
 <div align="center">
   <h1 align="center">Contributing to KoppaJS Projects</h1>
   <h3 align="center">Build with intention. Contribute with clarity.</h3>
@@ -24,24 +22,46 @@
 
 > _“Only start things you are willing to finish with dedication.”_
 
-KoppaJS is more than a collection of repositories — it is a declaration of intent.
+KoppaJS favors explicit behavior, readable systems, and deliberate repository contracts.
 
-The project exists to prove that frontend systems can be **simple**, **explicit**,
-and **comprehensible**, without relying on unnecessary abstraction or hidden magic.
+Contributions should preserve those traits:
 
-KoppaJS follows **Intentional Architecture**:
+- keep behavior understandable and traceable
+- prefer explicit contracts over hidden convention
+- update documentation when the owned contract changes
+- leave the repository in a state where both humans and AI agents can recover intent locally
 
-- **No factories. No hidden abstractions. No magic.**  
-  Behavior must be explicit, traceable, and explainable.
+<p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
-- **Every behavior is understandable.**  
-  No invisible lifecycles, no implicit state transitions.
+---
 
-- **Data flows by reference.**  
-  What can be shared should not be duplicated.
+## Repository Governance
 
-- **The developer stays in control.**  
-  KoppaJS does not override intent.
+Before structural, workflow, or user-visible changes, read the local governance layer:
+
+- [DECISION_HIERARCHY.md](./DECISION_HIERARCHY.md)
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [DEVELOPMENT_RULES.md](./DEVELOPMENT_RULES.md)
+- [docs/specs/README.md](./docs/specs/README.md)
+- [docs/specs/repository-documentation-contract.md](./docs/specs/repository-documentation-contract.md)
+
+If your change moves package behavior, contributor workflow, or governed file shape, update the corresponding documentation in the same change.
+
+<p align="right">(<a href="#contributing-top">back to top</a>)</p>
+
+---
+
+## Documentation Contract
+
+The root documents `README.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, and `CONTRIBUTING.md` are governed by [docs/specs/repository-documentation-contract.md](./docs/specs/repository-documentation-contract.md).
+
+Before committing, run:
+
+```bash
+pnpm run check:docs
+```
+
+The local pre-commit hook runs the same guard and blocks the commit when the contract fails.
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
@@ -49,10 +69,8 @@ KoppaJS follows **Intentional Architecture**:
 
 ## Requirements
 
-Before contributing, ensure you have:
-
-- **Node.js ≥ 20**
-- **pnpm ≥ 10**
+- Node.js >= 20
+- pnpm >= 10.24.0
 
 Install dependencies:
 
@@ -60,41 +78,26 @@ Install dependencies:
 pnpm install
 ```
 
-This also installs the repository's Git hooks via Husky.
-
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
 ---
 
 ## Development Workflow
 
-Each KoppaJS repository provides a consistent development experience.
+Use the smallest change that solves the actual problem.
 
-Typical workflows include:
+A safe default workflow is:
 
-### Build
+1. Read the affected code, tests, and local governance docs before changing behavior.
+2. Update the owned specs and governed root docs in the same change when the contract moves.
+3. Run `pnpm run check:docs` before broader quality checks.
+4. Run the repository quality gates that cover the affected behavior.
+5. Keep unrelated edits out of the same change whenever possible.
 
-```bash
-pnpm build
-```
+Repository-specific focus for this project:
 
-This may include:
-
-- Type checking
-- Bundling
-- Generation of public type definitions (where applicable)
-
-### Testing
-
-```bash
-pnpm test
-```
-
-Optional:
-
-```bash
-pnpm test:coverage
-```
+- Keep the package build-time only and avoid runtime behavior.
+- Treat the emitted module contract as explicit, versioned product surface.
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
@@ -102,25 +105,14 @@ pnpm test:coverage
 
 ## Code Style & Quality
 
-All KoppaJS projects enforce consistency through:
+All KoppaJS repositories value clarity over cleverness.
 
-- **TypeScript (strict mode where applicable)**
-- **ESLint**
-- **Prettier**
+Expectations for changes in this repository:
 
-Check code quality:
-
-```bash
-pnpm check
-```
-
-Format code:
-
-```bash
-pnpm format
-```
-
-Contributions must pass all checks enforced by CI.
+- keep implementations explicit and easy to review
+- prefer updating governing docs over leaving intent implicit
+- keep quality-gate commands passing before asking for review
+- do not silently change public behavior or contributor workflow
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
@@ -132,13 +124,11 @@ KoppaJS uses **Conventional Commits**.
 
 Example:
 
-```
-feat: add support for processed lifecycle hook
+```text
+feat: harden documentation contract validation
 ```
 
-Gitmojis are optional.
-
-Commit messages are validated automatically where commit hooks are enabled.
+Keep commit scope aligned with the actual repository change.
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
@@ -146,34 +136,14 @@ Commit messages are validated automatically where commit hooks are enabled.
 
 ## Testing Guidelines
 
-Most KoppaJS projects follow the **Three Test Rule**:
+Every user-visible or contract-visible change should leave verification behind.
 
-- **Valid Case** — expected usage
-- **Error Case** — invalid or failing input
-- **Edge Case** — unusual but valid scenario
+That means:
 
-General expectations:
-
-- Tests should mirror the source structure
-- Each exported utility or behavior should be covered
-- No global mocks unless unavoidable
-- Test data should be explicit and minimal
-
-<p align="right">(<a href="#contributing-top">back to top</a>)</p>
-
----
-
-## Architectural Expectations
-
-When contributing to KoppaJS projects:
-
-- Prefer **explicit, functional code**
-- Avoid unnecessary abstraction
-- Isolate helpers and guards clearly
-- Avoid broad `any` or unchecked assertions unless justified
-- Favor clarity over cleverness
-
-If a change cannot be clearly explained, it likely does not belong.
+- update specs when behavior changes
+- add or adjust automated tests when executable behavior changes
+- run the repository commands that cover the affected area
+- keep the documentation contract valid when the root docs change
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
@@ -181,18 +151,16 @@ If a change cannot be clearly explained, it likely does not belong.
 
 ## Scripts
 
-Each repository defines its own scripts, but commonly available commands include:
-
-| Command       | Description            |
-| ------------- | ---------------------- |
-| `pnpm build`  | Build the project      |
-| `pnpm check`  | Run local quality gate |
-| `pnpm test`   | Run tests              |
-| `pnpm lint`   | Run lint checks        |
-| `pnpm format` | Format code            |
-| `pnpm clean`  | Remove build artifacts |
-
-Refer to the repository’s `package.json` for project-specific commands.
+| Command                 | Description                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `pnpm run check:docs`   | Validate README, CHANGELOG, CODE_OF_CONDUCT, CONTRIBUTING, and the local doc contract |
+| `pnpm run check`        | Run the main local quality gate                                                       |
+| `pnpm run validate`     | Run the repository validation flow                                                    |
+| `pnpm run build`        | Build the project output                                                              |
+| `pnpm run test`         | Run the test suite                                                                    |
+| `pnpm run lint`         | Run lint checks                                                                       |
+| `pnpm run format`       | Format repository files                                                               |
+| `pnpm run format:check` | Check formatting without rewriting files                                              |
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
@@ -200,38 +168,9 @@ Refer to the repository’s `package.json` for project-specific commands.
 
 ## Releasing
 
-KoppaJS projects use a **manual, tag-driven release process**.
+This repository uses the documented tag-driven release flow and package validation steps.
 
-General flow:
-
-1. Update version and changelog
-2. Commit the release preparation
-3. Tag the release (`vX.Y.Z`)
-4. Push the tag to `main`
-
-CI will validate the release and publish artifacts where applicable.
-
-Exact release behavior may vary by repository.
-
-<p align="right">(<a href="#contributing-top">back to top</a>)</p>
-
----
-
-## Repository-Specific Governance
-
-This repository also maintains a project-specific meta layer for architecture,
-decision records, testing expectations, and AI-assisted development.
-
-Before non-trivial changes, read:
-
-1. [DECISION_HIERARCHY.md](DECISION_HIERARCHY.md)
-2. [ARCHITECTURE.md](ARCHITECTURE.md)
-3. Relevant specs in `docs/specs/`
-4. [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md)
-5. [TESTING_STRATEGY.md](TESTING_STRATEGY.md)
-
-If you change architecture, public behavior, workflow rules, or test strategy,
-update the corresponding meta-layer document in the same change.
+When a release changes the public contract, update `CHANGELOG.md`, the relevant specs, and the governed root documents together.
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
@@ -239,9 +178,8 @@ update the corresponding meta-layer document in the same change.
 
 ## Need Help?
 
-Open an issue or start a discussion in the relevant repository.
+Open an issue: https://github.com/koppajs/koppajs-vite-plugin/issues
 
-Thank you for contributing — and for helping keep KoppaJS intentional, calm,
-and a pleasure to build with.
+If the question is about contributor expectations or file shape, start with [DEVELOPMENT_RULES.md](./DEVELOPMENT_RULES.md) and [docs/specs/repository-documentation-contract.md](./docs/specs/repository-documentation-contract.md).
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
