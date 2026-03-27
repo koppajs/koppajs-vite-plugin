@@ -54,10 +54,12 @@ describe('package metadata contract', () => {
     expect(packageJson.scripts?.clean).not.toContain('pnpm-lock.yaml')
   })
 
-  it('declares Node.js >=22 while keeping Node 22 as the maintainer default', () => {
+  it('declares Node.js >=22, keeps Node 22 as the maintainer default, and enforces engine-strict locally', () => {
     const nvmrc = readFileSync(new URL('../.nvmrc', import.meta.url), 'utf8').trim()
+    const npmrc = readFileSync(new URL('../.npmrc', import.meta.url), 'utf8').trim()
 
     expect(packageJson.engines?.node).toBe('>=22')
     expect(nvmrc).toBe('22')
+    expect(npmrc).toContain('engine-strict=true')
   })
 })

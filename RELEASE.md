@@ -59,6 +59,9 @@ Tooling expectations for local verification:
 - Node.js >= 22
 - pnpm >= 10.24.0
 
+This repository enforces `engine-strict=true` through the tracked `.npmrc`, so
+incompatible Node.js or pnpm versions should be treated as a release blocker.
+
 ## What Must Be Prepared on `develop`
 
 All release content is finalized on `develop`, not on `main`.
