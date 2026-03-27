@@ -13,7 +13,8 @@ Storybook, or interactive demo surface inside the repo.
 - A local documentation-contract validator keeps governed root docs in sync.
 - Husky and lint-staged run fast pre-commit checks before commit.
 - Commitlint enforces conventional commit messages.
-- GitHub Actions runs the repository validation and release gates.
+- GitHub Actions runs `pnpm validate` in CI on Node.js 22 and 24, then reruns
+  the release gate on the maintainer default from `.nvmrc`.
 
 ## Script contract
 

@@ -1,6 +1,6 @@
 {
   "name": "@koppajs/koppajs-vite-plugin",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.es.js",
@@ -22,7 +22,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/koppajs/koppajs-vite-plugin"
+    "url": "git+https://github.com/koppajs/koppajs-vite-plugin.git"
   },
   "description": "KoppaJS Vite Plugin - Seamless Integration for KoppaJS Framework with Vite",
   "keywords": [
@@ -63,12 +63,11 @@
     "format:check": "prettier --config prettier.config.mjs --check .",
     "check": "pnpm run check:docs && pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test:run",
     "validate": "pnpm run check:docs && pnpm run format:check && pnpm run lint && pnpm run test:ci && pnpm run build",
-    "dump:ai": "node scripts/project-dump.mjs",
     "check:docs": "node scripts/check-doc-contract.mjs"
   },
   "packageManager": "pnpm@10.24.0",
   "engines": {
-    "node": ">=20",
+    "node": ">=22",
     "pnpm": ">=10.24.0"
   },
   "peerDependencies": {

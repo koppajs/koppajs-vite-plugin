@@ -14,8 +14,9 @@
   and dev-server behavior with real `.kpa` files.
 - Re-evaluate whether `src/index.ts` should shed more parsing or orchestration
   logic into dedicated modules as complexity grows.
-- Introduce hosted CI workflows under `.github/workflows/` that enforce the
-  quality gates described in [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
+- Keep hosted CI workflows under `.github/workflows/` aligned with the
+  supported Node.js baseline and the quality gates described in
+  [TESTING_STRATEGY.md](TESTING_STRATEGY.md).
 
 ## Ongoing
 

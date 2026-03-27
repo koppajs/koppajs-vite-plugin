@@ -132,7 +132,7 @@ For package consumers:
 
 For local repository work:
 
-- Node.js >= 20
+- Node.js >= 22
 - pnpm >= 10.24.0
 
 ---
@@ -228,13 +228,15 @@ For deeper semantics, use the package docs:
 
 ## Architecture & Governance
 
-Project intent, contributor rules, and documentation contracts live in the local repo meta layer:
+Project intent, contributor rules, release flow, and documentation contracts
+live in the local repo meta layer:
 
 - [AI_CONSTITUTION.md](./AI_CONSTITUTION.md)
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [DECISION_HIERARCHY.md](./DECISION_HIERARCHY.md)
 - [DEVELOPMENT_RULES.md](./DEVELOPMENT_RULES.md)
 - [TESTING_STRATEGY.md](./TESTING_STRATEGY.md)
+- [RELEASE.md](./RELEASE.md)
 - [ROADMAP.md](./ROADMAP.md)
 - [CHANGELOG.md](./CHANGELOG.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md)

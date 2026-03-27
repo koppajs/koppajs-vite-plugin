@@ -29,6 +29,10 @@ the same rules.
 - Read [DECISION_HIERARCHY.md](DECISION_HIERARCHY.md),
   [ARCHITECTURE.md](ARCHITECTURE.md), and the relevant spec before making
   non-trivial changes.
+- If a change touches packaging, release, or workflow behavior, read
+  [RELEASE.md](RELEASE.md) and
+  [docs/quality/tooling-baseline.md](docs/quality/tooling-baseline.md) as
+  well.
 - Follow this order whenever possible: spec or ADR review -> tests ->
   implementation -> documentation updates.
 - Never silently change the public API exported from `src/index.ts`, the
@@ -52,6 +56,9 @@ Update the meta layer whenever any of the following happens:
 - New verification rule or test level: update
   [TESTING_STRATEGY.md](TESTING_STRATEGY.md) and, if needed,
   [docs/quality/definition-of-done.md](docs/quality/definition-of-done.md).
+- New package, release, or publish rule: update [RELEASE.md](RELEASE.md),
+  [docs/quality/tooling-baseline.md](docs/quality/tooling-baseline.md), and
+  the affected workflow or root docs.
 - New public behavior or changed feature semantics: add or update a spec under
   `docs/specs/`.
 - Major design or policy decision: add an ADR under `docs/adr/`.

@@ -14,11 +14,27 @@ not every internal refactor.
 
 This section is intentionally empty.
 
-Changes will only appear here when they:
+---
 
-- are user-visible,
-- change transformation semantics,
-- or affect documented guarantees.
+## [1.0.3] — Node Baseline and Release Governance Alignment
+
+**2026-03-27**
+
+Patch release to raise the supported Node.js baseline, widen CI coverage, and
+complete the repository's release-governance surface. No intentional public API
+or emitted-module contract changes.
+
+### Added
+
+- Added a repository-local `RELEASE.md` plus missing architecture and quality
+  index docs to complete the repo meta layer
+
+### Changed
+
+- Raised the repository Node.js minimum to `>=22`, kept `.nvmrc` at `22` as
+  the maintainer default, and expanded CI validation to Node 24
+- Aligned the release and governance documents so the repo's defined release
+  flow is explicit and locally recoverable
 
 ---
 

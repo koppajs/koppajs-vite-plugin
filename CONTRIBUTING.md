@@ -42,6 +42,7 @@ Before structural, workflow, or user-visible changes, read the local governance 
 - [DECISION_HIERARCHY.md](./DECISION_HIERARCHY.md)
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [DEVELOPMENT_RULES.md](./DEVELOPMENT_RULES.md)
+- [RELEASE.md](./RELEASE.md)
 - [docs/specs/README.md](./docs/specs/README.md)
 - [docs/specs/repository-documentation-contract.md](./docs/specs/repository-documentation-contract.md)
 
@@ -69,7 +70,7 @@ The local pre-commit hook runs the same guard and blocks the commit when the con
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 22
 - pnpm >= 10.24.0
 
 Install dependencies:
@@ -168,9 +169,12 @@ That means:
 
 ## Releasing
 
-This repository uses the documented tag-driven release flow and package validation steps.
+This repository uses the documented release-branch and tag flow in
+[RELEASE.md](./RELEASE.md).
 
-When a release changes the public contract, update `CHANGELOG.md`, the relevant specs, and the governed root documents together.
+When a release or packaging rule changes, update `RELEASE.md`,
+`.github/workflows/`, `CHANGELOG.md`, and the affected quality or meta-layer
+documents in the same change.
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 

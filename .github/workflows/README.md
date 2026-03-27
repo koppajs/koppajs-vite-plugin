@@ -7,8 +7,9 @@ They should enforce the same quality gates described in
 ## Current baseline jobs
 
 - CI runs on pull requests to `develop` and `main`, and on pushes to `main`
-- CI validates the repo with `pnpm validate`
-- release tags rerun `pnpm validate`, verify the tag version, then publish
+- CI validates the repo with `pnpm validate` on Node.js 22 and 24
+- release tags rerun `pnpm validate` on the maintainer default from `.nvmrc`,
+  verify the tag version, then publish
 
 ## Governance rule
 
