@@ -12,7 +12,27 @@ not every internal refactor.
 
 ## [Unreleased]
 
-This section is intentionally empty.
+- Extend the local Vite peer contract to Vite 7 and 8, with real dev-server
+  and production-build integration coverage. The emitted module contract and
+  package version are unchanged; this compatibility update is not published.
+- **Unreleased breaking host support change:** raise the Node.js minimum from
+  22.0.0 to 22.12.0 for native Oxc. Development tooling still requires Node
+  22.22.1+ or a current Node 24 patch.
+- Migrate to TypeScript 7.0.2 as an exact development dependency for native
+  `tsc` type-checking and declaration emission. Remove the TypeScript peer
+  requirement without a TypeScript 5 fallback. Component compilation now uses
+  Oxc 0.156.0, esbuild 0.28.2, and get-tsconfig 4.14.3. Preserve synchronous
+  controllers, invalid-input fallback, and the existing `scriptMap` contract;
+  exact generated formatting remains internal. Targets `es3` and `es5` are
+  unsupported; use `es2015` or newer, or `esnext` (`es6` aliases `es2015`).
+  Other emit options follow esbuild support; `emitDecoratorMetadata` is
+  explicitly unsupported rather than silently dropped.
+- Add packed ESM/CJS smoke checks to `pnpm validate`, exercising actual
+  TypeScript controllers, imports, and sourcemaps with production dependencies.
+- Use ESLint for JavaScript and Oxlint 1.90.0 for TypeScript/TSX instead of
+  typescript-eslint. Remove unused vite-tsconfig-paths without TypeScript peer
+  ignores or overrides. Package version remains unchanged; these changes are
+  not a published release.
 
 ---
 

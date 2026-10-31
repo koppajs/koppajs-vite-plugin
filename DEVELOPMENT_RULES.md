@@ -51,8 +51,13 @@ this repository.
   review of `bundleAllowlist`.
 - Utility modules under `src/utils/` should not depend on Vite or file-system
   APIs unless the boundary is explicitly redefined in architecture docs.
-- New parser or compiler dependencies must justify why existing `typescript`,
-  `sass`, `postcss`, `autoprefixer`, and `acorn` primitives are insufficient.
+- New parser or compiler dependencies must justify why the existing compiler
+  primitives are insufficient. TypeScript 7.0.2 provides native `tsc` checking
+  and declarations but no stable standalone JavaScript compiler API. Therefore
+  component imports use Oxc, transpilation uses esbuild, and JSONC/`extends`
+  resolution uses get-tsconfig. Sass, PostCSS, Autoprefixer, and Acorn keep their
+  existing focused roles. See ADR 0003; do not restore a TypeScript 5 fallback,
+  unstable TypeScript 7 API, or TypeScript peer compatibility workaround.
 - Build or release tooling changes must be reflected in
   `docs/quality/tooling-baseline.md` and, if contributor-facing,
   `CONTRIBUTING.md` or `RELEASE.md`.
@@ -81,7 +86,7 @@ this repository.
 ## Style rules
 
 - Follow the configured toolchain: strict TypeScript, Prettier formatting,
-  ESLint, and commitlint.
+  ESLint for JavaScript, Oxlint for TypeScript/TSX, and commitlint.
 - Prefer small functions, explicit names, and comments only where the code would
   otherwise hide an important invariant.
 

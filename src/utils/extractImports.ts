@@ -2,7 +2,7 @@
  * Utility for extracting and processing import declarations from TypeScript code.
  * Used to collect runtime dependencies from .kpa [ts] blocks.
  */
-import ts from 'typescript'
+import { parseSync } from 'oxc-parser'
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -40,93 +40,58 @@ export interface ExtractImportsResult {
  * @param code - The source code to parse
  * @param filePath - The file path (used in error messages)
  * @returns The deps map and code with imports removed
- * @throws Error if duplicate identifiers are found
+ * @throws Error if duplicate identifiers or invalid syntax are found
  */
 export function extractImports(code: string, filePath: string): ExtractImportsResult {
-  const sourceFile = ts.createSourceFile(
-    'module.ts',
-    code,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TS,
+  const parsed = parseSync('module.ts', code)
+  // Component scripts are function bodies, but imports require module parsing.
+  // Oxc retains the AST for top-level returns, so tolerate only that diagnostic.
+  const parseError = parsed.errors.find(
+    (error) =>
+      error.message !== "A 'return' statement can only be used within a function body.",
   )
+  if (parseError) {
+    throw new SyntaxError(`Failed to parse imports in ${filePath}: ${parseError.message}`)
+  }
 
   const deps = new Map<string, ImportInfo>()
   const importRanges: Array<{ start: number; end: number }> = []
 
-  for (const statement of sourceFile.statements) {
-    if (!ts.isImportDeclaration(statement)) {
+  for (const statement of parsed.program.body) {
+    if (statement.type !== 'ImportDeclaration') {
       continue
     }
 
-    // Get the module specifier (e.g., "lodash")
-    const moduleSpecifier = statement.moduleSpecifier
-    if (!ts.isStringLiteral(moduleSpecifier)) {
-      continue
-    }
-    const source = moduleSpecifier.text
+    const source = statement.source.value
 
-    // Track the range to remove
-    importRanges.push({
-      start: statement.getStart(sourceFile),
-      end: statement.getEnd(),
-    })
+    // Oxc's JavaScript AST offsets are UTF-16, matching String.slice.
+    importRanges.push({ start: statement.start, end: statement.end })
 
-    // Get the import clause (what's being imported)
-    const importClause = statement.importClause
-    if (!importClause) {
-      // Side-effect import like `import "module"` - we skip these
+    // Strip type-only and side-effect imports without runtime dependencies.
+    if (statement.importKind === 'type') {
       continue
     }
 
-    // Skip type-only imports completely - they don't need runtime deps
-    // e.g., `import type { Foo } from "..."` has importClause.isTypeOnly = true
-    if (importClause.isTypeOnly) {
-      continue
-    }
-
-    // Handle default import: import X from "..."
-    if (importClause.name) {
-      const localName = importClause.name.text
-      checkDuplicate(deps, localName, filePath)
-      deps.set(localName, {
-        localName,
-        exportName: 'default',
-        source,
-      })
-    }
-
-    // Handle named imports: import { X, Y as Z } from "..."
-    const namedBindings = importClause.namedBindings
-    if (namedBindings && ts.isNamedImports(namedBindings)) {
-      for (const element of namedBindings.elements) {
-        // Skip type-only named imports within a value import
-        // e.g., `import { type Foo, Bar } from "..."` - skip Foo, keep Bar
-        if (element.isTypeOnly) {
-          continue
-        }
-
-        const localName = element.name.text
-        const exportName = element.propertyName?.text ?? localName
-
-        checkDuplicate(deps, localName, filePath)
-        deps.set(localName, {
-          localName,
-          exportName,
-          source,
-        })
+    for (const specifier of statement.specifiers) {
+      if (specifier.type === 'ImportSpecifier' && specifier.importKind === 'type') {
+        continue
       }
-    }
 
-    // Handle namespace import: import * as X from "..."
-    if (namedBindings && ts.isNamespaceImport(namedBindings)) {
-      const localName = namedBindings.name.text
+      const localName = specifier.local.name
+      let exportName: string
+      if (specifier.type === 'ImportDefaultSpecifier') {
+        exportName = 'default'
+      } else if (specifier.type === 'ImportNamespaceSpecifier') {
+        exportName = '*'
+      } else {
+        exportName =
+          specifier.imported.type === 'Identifier'
+            ? specifier.imported.name
+            : specifier.imported.value
+      }
+
       checkDuplicate(deps, localName, filePath)
-      deps.set(localName, {
-        localName,
-        exportName: '*',
-        source,
-      })
+      deps.set(localName, { localName, exportName, source })
     }
   }
 

@@ -49,9 +49,31 @@ previewable UI surface such as a demo app, Storybook, or interactive docs.
   dependency loaders.
 - Build configuration change: run at least `pnpm build` and `pnpm test`.
 
+## Compiler migration acceptance
+
+- Run real native TypeScript 7.0.2 `tsc` for type-checking and declaration
+  emission; linting and transpilation do not substitute for those checks.
+- Exercise Oxc import extraction with TypeScript syntax, duplicate imports,
+  stripping, and dependency loader generation.
+- Exercise esbuild synchronous controller bodies, composition and legacy
+  returns, inline helpers, and invalid-input minimal fallback.
+- Verify JSONC tsconfig and `extends` resolution with get-tsconfig; cover
+  `es2015` and newer targets, `esnext`, the `es6` alias, and rejection of
+  unsupported `es3`/`es5` targets. Module settings must not wrap controller
+  function bodies as standalone modules.
+- Preserve separate `scriptMap` data (or `null`) and removal of inline
+  `sourceMappingURL`/`sourceURL` directives. Verify executable semantics and
+  mapping structure rather than pinning compiler whitespace or helper layout.
+- Run `pnpm test:package` after the build. It uses `pnpm pack` and `tar` to
+  smoke-test the actual ESM and CJS payload with only declared production
+  dependencies, including executable typed controllers, import extraction,
+  and separate sourcemaps. `pnpm validate` includes this check.
+- Rerun real Vite 7 and 8 dev-server/build integrations after migration.
+  Earlier TypeScript 5 results are not evidence for TypeScript 7 correctness.
+
 ## Mocking policy
 
-- Prefer real TypeScript, Sass, PostCSS, and Acorn behavior over mocks for
+- Prefer real Oxc, esbuild, get-tsconfig, Sass, PostCSS, and Acorn behavior over mocks for
   transformation tests.
 - Mock Vite only at the boundary where hook behavior is being isolated.
 - Do not mock `transformKpaToModule` when validating plugin output semantics.
@@ -79,7 +101,8 @@ hard numeric merge gate. The practical expectation is:
 
 ## Current gaps to close over time
 
-- The repo lacks fixture-based Vite integration tests for `load`, `resolveId`,
-  and dev-server behavior.
+- `test/vite-integration.test.ts` covers real dev-server and production-build
+  transforms, including relative imports, TypeScript and SCSS. Run this suite
+  on Vite 7 and 8 when changing the host compatibility range.
 - If build output file names or package exports change, keep the packaging
   metadata tests aligned in the same change.

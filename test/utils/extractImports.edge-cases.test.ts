@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { extractImports } from '../../src/utils/extractImports'
+import { transformKpaToModule } from '../../src/index'
 
 describe('extractImports - edge cases and negative tests', () => {
   describe('malformed imports', () => {
@@ -319,12 +320,12 @@ describe('extractImports - edge cases and negative tests', () => {
       expect(result.deps.size).toBe(50)
     })
 
-    it('handles imports with unicode characters', () => {
+    it('rejects invalid emoji identifiers with a contextual parser error', () => {
       const code = `import { föö, 日本語, emoji😀 } from 'module'`
-      const result = extractImports(code, 'test.kpa')
 
-      // JavaScript identifiers can contain unicode
-      expect(result.deps.size).toBeGreaterThanOrEqual(0)
+      expect(() => extractImports(code, 'test.kpa')).toThrow(
+        'Failed to parse imports in test.kpa:',
+      )
     })
 
     it('handles imports with escaped characters', () => {
@@ -333,5 +334,100 @@ describe('extractImports - edge cases and negative tests', () => {
 
       expect(result.deps.size).toBeGreaterThanOrEqual(0)
     })
+  })
+})
+
+describe('extractImports - oxc parser regressions', () => {
+  it('preserves exact UTF-16 stripping ranges after Unicode text', () => {
+    const before = '// é 日本語 😀\r\nconst label = "𝄞 café";\r\n'
+    const between = '\r\n/* 😀 retain this comment */\r\n'
+    const after = '\r\nreturn { label, foo, Utils };'
+    const code =
+      before +
+      'import { foo } from "./日本語";' +
+      between +
+      'import * as Utils from "./utils";' +
+      after
+
+    const result = extractImports(code, 'unicode.kpa')
+
+    expect(result.strippedCode).toBe(before + between + after)
+    expect(result.deps.get('foo')?.source).toBe('./日本語')
+    expect(result.deps.get('Utils')?.exportName).toBe('*')
+  })
+
+  it('decodes escaped identifiers, string export names and module sources', () => {
+    const code = String.raw`import { f\u006fo as l\u006fcal, "some\u002dexport" as value } from "./m\u006fd";`
+    const result = extractImports(code, 'escaped.kpa')
+
+    expect([...result.deps.values()]).toEqual([
+      { localName: 'local', exportName: 'foo', source: './mod' },
+      { localName: 'value', exportName: 'some-export', source: './mod' },
+    ])
+    expect(result.strippedCode).toBe('')
+  })
+
+  it('detects duplicates after decoding escaped local identifiers', () => {
+    const code = String.raw`import { foo } from 'a'; import { bar as f\u006fo } from 'b';`
+
+    expect(() => extractImports(code, 'escaped.kpa')).toThrow(
+      "Duplicate imported identifier 'foo' in escaped.kpa",
+    )
+  })
+
+  it('strips type-only default, namespace and named bindings without dependencies', () => {
+    const code = `import type Default from 'types-default';
+import type * as NS from 'types-namespace';
+import type { Named } from 'types-named';
+import { type Mixed, runtime } from 'runtime';
+import Default, * as NS from 'values';
+return { runtime, Default, NS };`
+    const result = extractImports(code, 'types.kpa')
+
+    expect([...result.deps.keys()]).toEqual(['runtime', 'Default', 'NS'])
+    expect(result.deps.get('Default')?.source).toBe('values')
+    expect(result.deps.get('NS')?.exportName).toBe('*')
+    expect(result.strippedCode).toBe('return { runtime, Default, NS };')
+  })
+
+  it('preserves TypeScript component bodies with top-level returns and await', () => {
+    const body = `interface State { value: number }
+const value: number = await load();
+if (value < 0) { return { state: {} } as const; }
+return { state: { value } satisfies State };`
+    const result = extractImports(`import { load } from './loader';\n${body}`, 'body.kpa')
+
+    expect(result.deps.get('load')?.source).toBe('./loader')
+    expect(result.strippedCode).toBe(body)
+  })
+
+  it.each([
+    "import { foo from 'module';",
+    "import { foo } from 'module'; const value: = 1;",
+    "import { foo } from 'module'; return { state: ; };",
+  ])('rejects invalid syntax instead of returning partial dependencies: %s', (code) => {
+    expect(() => extractImports(code, '/components/invalid.kpa')).toThrow(
+      'Failed to parse imports in /components/invalid.kpa:',
+    )
+  })
+})
+
+describe('extractImports - direct transform fallback', () => {
+  it.each(['js', 'ts'])('keeps the minimal controller for invalid %s bodies', (lang) => {
+    const output = transformKpaToModule(
+      `[${lang}]import { foo } from 'module'; return { state: ; };[/${lang}]`,
+      '/components/invalid.kpa',
+      {},
+      new Map(),
+    )
+    const module = new Function(`return (${output})`)() as {
+      script: string
+      scriptMap: unknown
+      deps: unknown
+    }
+
+    expect(module.script).toBe('(() => { return { state: {} }; })()')
+    expect(module.scriptMap).toBeNull()
+    expect(module.deps).toBeNull()
   })
 })

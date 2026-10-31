@@ -56,8 +56,10 @@ Before cutting a release, ensure all of the following are true:
 
 Tooling expectations for local verification:
 
-- Node.js >= 22
+- Node.js 22.22.1+ or a current Node 24 patch for development and release checks
+  (unreleased package minimum: Node.js >= 22.12.0 for native Oxc)
 - pnpm >= 10.24.0
+- `tar` on PATH for the packed-package smoke test included in `pnpm validate`
 
 This repository enforces `engine-strict=true` through the tracked `.npmrc`, so
 incompatible Node.js or pnpm versions should be treated as a release blocker.

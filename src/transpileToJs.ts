@@ -1,14 +1,11 @@
-import fs from 'node:fs'
 import path from 'node:path'
-import ts from 'typescript'
+import { transformSync } from 'esbuild'
+import { parseTsconfig } from 'get-tsconfig'
 
 export type JsTranspileResult = {
   code: string
   map?: unknown
 }
-
-const commentRegExp =
-  /(?<!:)\/\/[^\n]*|\/\*[\s\S]*?(?<!\*\/)\*\/|(["'`])(?:\\\1|(?!\1).)*?\1/g
 
 function stripSourceMapComments(code: string): string {
   return code
@@ -17,51 +14,36 @@ function stripSourceMapComments(code: string): string {
 }
 
 function transpileToJs(tsCode: string, tsconfigPath?: string): JsTranspileResult {
-  let compilerOptions: ts.CompilerOptions = {}
-
-  if (typeof tsconfigPath === 'string') {
-    const configFileContent = fs.readFileSync(path.resolve(tsconfigPath), {
-      encoding: 'utf8',
-    })
-
-    const tsConfig = JSON.parse(
-      configFileContent
-        .replace(commentRegExp, (match: any) => {
-          if (match.startsWith("'") || match.startsWith('"') || match.startsWith('`')) {
-            return match
-          }
-          return ''
-        })
-        // Strip trailing commas that are valid in JSONC but not in JSON
-        .replace(/,\s*([}\]])/g, '$1'),
-    )
-
-    compilerOptions = tsConfig.compilerOptions ?? {}
-  } else {
-    compilerOptions = {
-      target: ts.ScriptTarget.ESNext,
-      module: ts.ModuleKind.ESNext,
-    }
+  const config = tsconfigPath ? parseTsconfig(path.resolve(tsconfigPath)) : undefined
+  const configuredTarget = config?.compilerOptions?.target?.toLowerCase()
+  const target = configuredTarget === 'es6' ? 'es2015' : (configuredTarget ?? 'esnext')
+  if (target === 'es3' || target === 'es5') {
+    throw new Error(`Unsupported component target '${target}': use ES2015 or newer`)
+  }
+  if (config?.compilerOptions?.emitDecoratorMetadata) {
+    throw new Error('Component transpilation does not support emitDecoratorMetadata')
   }
 
-  // Force sourcemap generation into result.sourceMapText (not via file comment)
-  compilerOptions = {
-    ...compilerOptions,
-    sourceMap: true,
-    inlineSourceMap: false,
-    inlineSources: true,
-  }
-
-  const result = ts.transpileModule(tsCode, {
-    compilerOptions,
-    fileName: 'module.ts',
+  // Component scripts are function bodies, not standalone modules. Leave the
+  // output format unset so legacy top-level returns do not gain a module wrapper.
+  const result = transformSync(tsCode, {
+    loader: 'ts',
+    sourcefile: 'module.ts',
+    target,
+    tsconfigRaw: config,
+    sourcemap: 'external',
+    sourcesContent: true,
+    logLevel: 'silent',
   })
 
-  const clean = stripSourceMapComments(result.outputText)
+  for (const warning of result.warnings) {
+    console.warn(`[koppajs-vite-plugin] module.ts: ${warning.text}`)
+  }
 
-  const map = result.sourceMapText ? JSON.parse(result.sourceMapText) : undefined
-
-  return { code: clean, map }
+  return {
+    code: stripSourceMapComments(result.code),
+    map: result.map ? JSON.parse(result.map) : undefined,
+  }
 }
 
 export default transpileToJs

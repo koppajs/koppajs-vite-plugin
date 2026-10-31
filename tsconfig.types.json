@@ -8,6 +8,7 @@
     "declarationMap": false,
 
     // wohin mit den .d.ts?
+    "rootDir": "src",
     "outDir": "dist"
   },
   // Nur der öffentliche Einstieg:
