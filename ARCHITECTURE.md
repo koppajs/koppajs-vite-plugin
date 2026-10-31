@@ -72,8 +72,16 @@ controller.
 - `src/utils/extractImports.ts` removes static import declarations from the
   component script, rejects duplicate identifiers, and builds dependency loader
   metadata.
-- `src/transpileToJs.ts` transpiles TypeScript with sourcemaps enabled, strips
-  `sourceMappingURL` and `sourceURL` comments, and returns the map as data.
+- Import extraction uses the `oxc-parser` 0.156.0 TypeScript AST, not the
+  TypeScript compiler JavaScript API.
+- `src/transpileToJs.ts` uses esbuild 0.28.2 `transformSync` with external
+  sourcemaps and inline helpers. It strips `sourceMappingURL` and `sourceURL`
+  comments and returns the map as data. `get-tsconfig` 4.14.3 resolves JSONC
+  configuration and `extends` chains. Targets start at `es2015` (`es6` alias),
+  with `esnext` supported; `es3` and `es5` are unsupported.
+- Scripts remain synchronous controller function bodies. A tsconfig `module`
+  setting does not introduce a standalone module wrapper. Generated formatting
+  is internal; the emitted contract and sourcemap contract remain unchanged.
 - `analyzeScriptForComposition` in `src/index.ts` detects composition-style
   scripts by looking for top-level variables and functions without a top-level
   `return`.
@@ -126,6 +134,18 @@ contain backticks, quotes, or `${...}` sequences.
   never from raw string concatenation alone.
 - Struct-id injection must be deterministic for the same `(path, template)`
   input pair.
+
+## Compiler and host boundary
+
+TypeScript is pinned to 7.0.2 as a development dependency. Native `tsc` performs
+real repository type-checking and public declaration emission. It is not used
+for component AST traversal or transpilation and is not a consumer peer.
+TypeScript 7 has no standalone stable JavaScript compiler API for those tasks;
+there is no TypeScript 5 fallback or compiler alias. See
+[ADR 0003](docs/adr/0003-native-typescript-and-component-compilers.md).
+
+Native Oxc requires Node.js `>=22.12.0`. Vite remains the sole host peer at
+`^7.0.0 || ^8.0.0`; this migration does not change the module contract version.
 
 ## Module map
 

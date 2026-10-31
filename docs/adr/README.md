@@ -31,3 +31,4 @@ Each ADR must contain these sections:
 
 - `0001-versioned-koppa-module-contract.md`
 - `0002-meta-layer-as-a-living-system.md`
+- `0003-native-typescript-and-component-compilers.md`

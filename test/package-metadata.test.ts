@@ -49,16 +49,29 @@ describe('package metadata contract', () => {
     }
   })
 
+  it('uses native TypeScript 7 without a consumer compiler peer or TS5 tooling', () => {
+    expect(packageJson.devDependencies.typescript).toBe('7.0.2')
+    expect(packageJson.peerDependencies).not.toHaveProperty('typescript')
+    expect(packageJson.devDependencies).not.toHaveProperty('@typescript-eslint/parser')
+    expect(packageJson.devDependencies).not.toHaveProperty(
+      '@typescript-eslint/eslint-plugin',
+    )
+    expect(packageJson.devDependencies).not.toHaveProperty('vite-tsconfig-paths')
+    expect(packageJson.dependencies).toHaveProperty('oxc-parser')
+    expect(packageJson.dependencies).toHaveProperty('esbuild')
+    expect(packageJson.dependencies).toHaveProperty('get-tsconfig')
+  })
+
   it('keeps clean focused on generated artifacts instead of dependency state', () => {
     expect(packageJson.scripts?.clean).not.toContain('node_modules')
     expect(packageJson.scripts?.clean).not.toContain('pnpm-lock.yaml')
   })
 
-  it('declares Node.js >=22, keeps Node 22 as the maintainer default, and enforces engine-strict locally', () => {
+  it('declares Node.js >=22.12.0, keeps Node 22 as the maintainer default, and enforces engine-strict locally', () => {
     const nvmrc = readFileSync(new URL('../.nvmrc', import.meta.url), 'utf8').trim()
     const npmrc = readFileSync(new URL('../.npmrc', import.meta.url), 'utf8').trim()
 
-    expect(packageJson.engines?.node).toBe('>=22')
+    expect(packageJson.engines?.node).toBe('>=22.12.0')
     expect(nvmrc).toBe('22')
     expect(npmrc).toContain('engine-strict=true')
   })

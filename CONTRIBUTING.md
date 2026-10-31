@@ -70,7 +70,8 @@ The local pre-commit hook runs the same guard and blocks the commit when the con
 
 ## Requirements
 
-- Node.js >= 22
+- Node.js >= 22.12.0 for the package (native Oxc); use Node 22.22.1+ or a current Node 24 patch
+  for the development toolchain (see `docs/quality/tooling-baseline.md`).
 - pnpm >= 10.24.0
 
 Install dependencies:
@@ -99,6 +100,10 @@ Repository-specific focus for this project:
 
 - Keep the package build-time only and avoid runtime behavior.
 - Treat the emitted module contract as explicit, versioned product surface.
+- Use the pinned TypeScript 7.0.2 native `tsc` for real type-checking and
+  declaration emission. Component compilation uses Oxc and esbuild instead.
+- ESLint checks JavaScript; Oxlint 1.90.0 checks TypeScript/TSX. Prettier owns
+  formatting. Do not add typescript-eslint or a TypeScript 5 fallback.
 
 <p align="right">(<a href="#contributing-top">back to top</a>)</p>
 
@@ -159,6 +164,7 @@ That means:
 | `pnpm run validate`     | Run the repository validation flow                                                    |
 | `pnpm run build`        | Build the project output                                                              |
 | `pnpm run test`         | Run the test suite                                                                    |
+| `pnpm run test:package` | Pack and smoke-test built ESM/CJS entrypoints with production dependencies only       |
 | `pnpm run lint`         | Run lint checks                                                                       |
 | `pnpm run format`       | Format repository files                                                               |
 | `pnpm run format:check` | Check formatting without rewriting files                                              |

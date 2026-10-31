@@ -92,12 +92,21 @@ It is a transformation layer, not a runtime extension.
 
 ```bash
 pnpm add @koppajs/koppajs-core
-pnpm add -D @koppajs/koppajs-vite-plugin vite typescript
+pnpm add -D @koppajs/koppajs-vite-plugin "vite@^8"
 ```
 
 ```bash
 npm install @koppajs/koppajs-core
-npm install -D @koppajs/koppajs-vite-plugin vite typescript
+npm install -D @koppajs/koppajs-vite-plugin "vite@^8"
+```
+
+Vite 7 is also supported. TypeScript is optional for consumers and is not a
+plugin peer dependency, even for `[ts]` component blocks. Install it as a dev
+dependency only if your project needs its own type-checking:
+
+```bash
+pnpm add -D typescript
+# npm install -D typescript
 ```
 
 Add the plugin to `vite.config.ts`:
@@ -126,14 +135,15 @@ pnpm create koppajs my-app
 
 For package consumers:
 
-- Vite `^7.0.0`
-- TypeScript `>=5.5 <6`
+- Node.js `>=22.12.0` (required by native Oxc)
+- Vite `^7.0.0 || ^8.0.0`
 - `@koppajs/koppajs-core` in the consuming project
 
 For local repository work:
 
-- Node.js >= 22
+- Node.js 22.22.1+ or a current Node 24 patch
 - pnpm >= 10.24.0
+- TypeScript 7.0.2, installed from this repository’s pinned dev dependency
 
 ---
 
@@ -172,8 +182,19 @@ Supported transformations include:
 - composition-style controllers
 - legacy `return {}` controllers
 
-The output format stays intentionally explicit so the KoppaJS core can remain
-small and predictable.
+Component scripts stay synchronous controller bodies, with a minimal controller
+fallback for invalid input. Compilation uses Oxc for import analysis, esbuild
+for transpilation, and get-tsconfig for JSONC/`extends` resolution. Configured
+targets must be `es2015` or newer, or `esnext` (`es6` aliases `es2015`); `es3`
+and `es5` are unsupported. The `module` setting does not wrap controller bodies
+as standalone modules. Helpers are emitted inline. Other emit options follow
+esbuild support; `emitDecoratorMetadata` is explicitly unsupported rather than
+silently dropped.
+
+The emitted contract stays explicit so the KoppaJS core can remain small and
+predictable. Exact generated whitespace and helper formatting are internal
+details, not a public guarantee. Version 2.0.0 introduces this compiler boundary,
+Vite 7/8 compatibility, and the Node.js 22.12.0 minimum.
 
 ---
 

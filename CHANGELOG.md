@@ -16,6 +16,43 @@ This section is intentionally empty.
 
 ---
 
+## [2.0.0] — Native TypeScript and Vite 7/8 Support
+
+**2026-10-31**
+
+Major release for the new compiler boundary and supported host baseline.
+The public exports and emitted module contract remain unchanged.
+
+### Breaking Changes
+
+- Require Node.js >=22.12.0 instead of >=22.0.0.
+- Require component targets ES2015 or newer (or ESNext); ES3, ES5, and
+  `emitDecoratorMetadata` are unsupported. Other emit options follow esbuild
+  support.
+
+### Changed
+
+- Extend the Vite peer contract to Vite 7 and 8, with real dev-server
+  and production-build integration coverage.
+- Use native Oxc on the new Node baseline. Development tooling requires Node
+  22.22.1+ or a current Node 24 patch.
+- Migrate to TypeScript 7.0.2 as an exact development dependency for native
+  `tsc` type-checking and declaration emission. Remove the TypeScript peer
+  requirement without a TypeScript 5 fallback. Component compilation now uses
+  Oxc 0.156.0, esbuild 0.28.2, and get-tsconfig 4.14.3. Preserve synchronous
+  controllers, invalid-input fallback, and the existing `scriptMap` contract;
+  exact generated formatting remains internal. Targets `es3` and `es5` are
+  unsupported; use `es2015` or newer, or `esnext` (`es6` aliases `es2015`).
+  Other emit options follow esbuild support; `emitDecoratorMetadata` is
+  explicitly unsupported rather than silently dropped.
+- Add packed ESM/CJS smoke checks to `pnpm validate`, exercising actual
+  TypeScript controllers, imports, and sourcemaps with production dependencies.
+- Use ESLint for JavaScript and Oxlint 1.90.0 for TypeScript/TSX instead of
+  typescript-eslint. Remove unused vite-tsconfig-paths without TypeScript peer
+  ignores or overrides.
+
+---
+
 ## [1.0.4] — Repository Baseline Cleanup and Engine Enforcement
 
 **2026-03-27**

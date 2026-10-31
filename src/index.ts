@@ -160,10 +160,7 @@ type AstFunctionDeclaration = {
 }
 
 type AstStatement =
-  | AstReturnStatement
-  | AstVariableDeclaration
-  | AstFunctionDeclaration
-  | { type: string }
+  AstReturnStatement | AstVariableDeclaration | AstFunctionDeclaration | { type: string }
 
 type AstProgram = {
   body: unknown[]
@@ -504,7 +501,14 @@ export default function koppajsVitePlugin(config: PluginOptions = {}): Plugin {
       // Pre-extract imports to get deps before transform
       const parsed = parseKpaSource(code)
       const scriptContent = parsed.script?.content ?? ''
-      const { deps } = extractImports(scriptContent, importerId)
+      let deps: Map<string, ImportInfo>
+      try {
+        deps = extractImports(scriptContent, importerId).deps
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error
+        // Invalid bodies share the transform layer's documented controller fallback.
+        deps = new Map()
+      }
 
       // Resolve all import sources using Vite's resolver
       const resolvedDeps = new Map<string, ResolvedImportInfo>()

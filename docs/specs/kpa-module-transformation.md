@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Owners: Plugin maintainers
-- Last updated: 2026-03-12
+- Last updated: 2026-10-31
 
 ## Behavior
 
@@ -43,6 +43,39 @@ The transform returns a JavaScript object literal string with these fields:
 - `scriptMap`: sourcemap object for the script or `null`
 - `deps`: dependency loader object or `null`
 - `structAttr`: attribute name used for structural identity
+
+## Host Compatibility
+
+- Support Vite `^7.0.0 || ^8.0.0` on Node.js `>=22.12.0`.
+- TypeScript is not a peer dependency. Component transpilation does not require
+  a consumer-installed TypeScript compiler.
+- Preserve the same emitted module contract across Vite majors.
+- Verify real dev-server transforms and production builds, including TypeScript,
+  SCSS and relative dependency imports, before extending the Vite peer range.
+- Version 2.0.0 establishes this host and compiler boundary. Version 1.0.4
+  supports Vite 7 only and retains its original TypeScript peer requirement.
+
+## Script compilation
+
+- Use `oxc-parser` 0.156.0 for the component import AST, independently of the
+  repository TypeScript compiler.
+- Use synchronous esbuild 0.28.2 `transformSync` for TypeScript-to-JavaScript
+  transformation, with external sourcemaps and inline helpers.
+- Resolve JSONC tsconfig files and their `extends` chain with `get-tsconfig`
+  4.14.3. Supported targets are `es2015` and newer, or `esnext`; `es6` is an
+  alias for `es2015`. `es3` and `es5` are unsupported. Other emit options
+  follow esbuild support; `emitDecoratorMetadata` is explicitly rejected rather
+  than silently dropped. Transpiler errors use the minimal-controller fallback;
+  non-fatal warnings are reported without discarding valid code.
+- Component scripts are controller function bodies, not standalone modules.
+  The tsconfig `module` option must not add a module wrapper to these bodies.
+- Preserve synchronous controller evaluation and legacy top-level returns.
+  Invalid script input retains the minimal-controller fallback.
+- Generated JavaScript whitespace and helper formatting are internal details,
+  not a byte-for-byte public output guarantee.
+- Preserve the existing sourcemap contract: maps are separate `scriptMap` data
+  for the emitted script body, never inline `sourceMappingURL` or `sourceURL`
+  directives. `scriptMap` may remain `null`.
 
 ## Constraints
 
