@@ -16,6 +16,15 @@ This section is intentionally empty.
 
 ---
 
+## [2.0.1]
+
+### Changed
+
+- Translate owned configuration comments into English while preserving
+  deliberate Unicode fixtures and compiler behavior.
+
+---
+
 ## [2.0.0] — Native TypeScript and Vite 7/8 Support
 
 **2026-10-31**

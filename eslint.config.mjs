@@ -1,7 +1,7 @@
 import js from '@eslint/js'
 import eslintConfigPrettier from 'eslint-config-prettier'
 
-/** Globale Ignore-Liste (ersetzt .eslintignore). TypeScript prüft oxlint. */
+/** Global ignore list (replaces .eslintignore). Oxlint checks TypeScript. */
 const ignores = [
   '.ai/**',
   '.git',
@@ -41,6 +41,6 @@ export default [
     },
   },
 
-  // Prettier bleibt der alleinige Formatter.
+  // Prettier remains the only formatter.
   eslintConfigPrettier,
 ]
