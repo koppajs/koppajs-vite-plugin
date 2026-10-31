@@ -52,8 +52,8 @@ The transform returns a JavaScript object literal string with these fields:
 - Preserve the same emitted module contract across Vite majors.
 - Verify real dev-server transforms and production builds, including TypeScript,
   SCSS and relative dependency imports, before extending the Vite peer range.
-- This is a local, unreleased compatibility update; published 1.0.4 metadata
-  still declares Vite 7 only until a maintainer publishes a new release.
+- Version 2.0.0 establishes this host and compiler boundary. Version 1.0.4
+  supports Vite 7 only and retains its original TypeScript peer requirement.
 
 ## Script compilation
 

@@ -193,8 +193,8 @@ silently dropped.
 
 The emitted contract stays explicit so the KoppaJS core can remain small and
 predictable. Exact generated whitespace and helper formatting are internal
-details, not a public guarantee. This migration and Vite 7/8 compatibility are
-local, unreleased changes; published 1.0.4 metadata is unchanged.
+details, not a public guarantee. Version 2.0.0 introduces this compiler boundary,
+Vite 7/8 compatibility, and the Node.js 22.12.0 minimum.
 
 ---
 

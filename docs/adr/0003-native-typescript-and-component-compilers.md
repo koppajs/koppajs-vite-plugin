@@ -41,8 +41,8 @@ contract or its separate sourcemap representation.
 Component compilation no longer depends on a consumer TypeScript installation
 or the repository compiler's JavaScript API. Separate maintained primitives
 add dependencies and native platform requirements but keep their responsibilities
-explicit. The higher Node minimum is an unreleased breaking host-support change;
-no release or package-version change is implied by this decision.
+explicit. The higher Node minimum is a breaking host-support change introduced
+in version 2.0.0.
 
 Contract, sourcemap, fallback, tsconfig, native type-check/declaration, and both
 Vite-major integration checks must be rerun. Earlier TypeScript 5 validation

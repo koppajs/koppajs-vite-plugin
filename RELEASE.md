@@ -57,7 +57,7 @@ Before cutting a release, ensure all of the following are true:
 Tooling expectations for local verification:
 
 - Node.js 22.22.1+ or a current Node 24 patch for development and release checks
-  (unreleased package minimum: Node.js >= 22.12.0 for native Oxc)
+  (package minimum: Node.js >= 22.12.0 for native Oxc)
 - pnpm >= 10.24.0
 - `tar` on PATH for the packed-package smoke test included in `pnpm validate`
 
@@ -94,14 +94,14 @@ Recommended commands:
 ```bash
 pnpm install --frozen-lockfile
 pnpm run validate
-pnpm pack --dry-run
+npm pack --dry-run
 ```
 
 Why this matters:
 
 - the release workflow reruns the same validation gate in CI
 - failing locally is cheaper than failing after tagging
-- `pnpm pack --dry-run` verifies the publishable package payload
+- `npm pack --dry-run` verifies the publishable package payload
 
 The published package contents are controlled by the `files` field in
 `package.json`. The intended publish payload is:

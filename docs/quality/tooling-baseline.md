@@ -22,9 +22,8 @@ Storybook, or interactive demo surface inside the repo.
 
 Use Node 22.22.1+ on the Node 22 line or a current Node 24 patch for the
 updated Vite 8, Vitest 5, ESLint 10 and lint-staged 17 development tools.
-The package requires Node.js >=22.12.0 for native Oxc; its version remains
-unchanged. Node typings stay on the supported Node 24 line rather than exposing
-Node 26-only APIs.
+Version 2.0.0 requires Node.js >=22.12.0 for native Oxc. Node typings stay on
+the supported Node 24 line rather than exposing Node 26-only APIs.
 
 TypeScript is pinned exactly to 7.0.2 as a dev dependency, not a peer or runtime
 compiler API. Native `tsc` owns repository type-checking and declaration
