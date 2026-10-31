@@ -1,9 +1,9 @@
 export default {
   extends: ['@commitlint/config-conventional'],
-  // Optional: eigene Regeln, z.B. Header-Länge:
+  // Optional custom rules, such as header length:
   rules: {
     'header-max-length': [2, 'always', 72],
-    // eigene Typen, falls du z.B. "plugin" usw. erlauben willst:
+    // Custom types, if you want to allow values such as "plugin":
     // 'type-enum': [2, 'always', [
     //   'build', 'chore', 'ci', 'docs', 'feat', 'fix', 'perf', 'refactor', 'revert', 'style', 'test'
     // ]]

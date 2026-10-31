@@ -11,8 +11,8 @@ node_modules
 pnpm-lock.yaml
 package-lock.json
 
-# Build/Tool-Artefakte
+# Build/tool artifacts
 ---*
 
-# Tests-Output ggf. später
+# Test output, if needed later
 coverage
